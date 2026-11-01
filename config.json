@@ -1,0 +1,24 @@
+{
+  "model_id": "Qwen/Qwen-3.5-4B",
+  "data_path": "./train/train.json",
+  "peft": {
+    "r": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "bias": "none",
+    "task_type": "CAUSAL_LM",
+    "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"]
+  },
+  "sft": {
+    "output_dir": "./sft-minimal-output",
+    "num_train_epochs": 3,
+    "per_device_train_batch_size": 1,
+    "gradient_accumulation_steps": 2,
+    "learning_rate": 2e-4,
+    "logging_steps": 1,
+    "save_strategy": "no",
+    "assistant_only_loss": true,
+    "max_length": 512,
+    "report_to": "none"
+  }
+}
