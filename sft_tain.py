@@ -1,23 +1,19 @@
-from load_model import get_model
-from peft import LoraConfig
-from trl import SFTTrainer, SFTConfig
 from datasets import load_dataset
-import json
+from peft import LoraConfig
+from trl import SFTConfig, SFTTrainer
 
-config = json.load(open("./config.json"))
-model_id = config["model_id"]
-data_path = config["data_path"]
+from config import load_config
+from load_model import get_model
 
-
-data = load_dataset("json", data_files=data_path)["train"]
-
-peft_config = LoraConfig(**config["peft"])
-
-sft_config = SFTConfig(**config["sft"])
+config = load_config()
 
 
 def sft_train():
-    tokenizer, model = get_model(model_id)
+    data = load_dataset("json", data_files=config["data_path"])["train"]
+    peft_config = LoraConfig(**config["peft"])
+    sft_config = SFTConfig(**config["sft"])
+
+    tokenizer, model = get_model(config["model_id"])
 
     # TRL >= 0.12 起 tokenizer 关键字改名为 processing_class
     # （旧版 TRL 用 tokenizer=，新版直接传会报 unexpected keyword argument）
@@ -33,5 +29,7 @@ def sft_train():
     save_dir = config["sft"]["output_dir"]
     trainer.save_model(save_dir)
     print(f"LoRA adapter saved to {save_dir}")
+
+
 if __name__ == "__main__":
     sft_train()
