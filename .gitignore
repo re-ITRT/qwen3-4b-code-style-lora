@@ -3,8 +3,10 @@
 .env.*
 !.env.example
 
-# 虚拟环境
+# 虚拟环境（符号链接也要挡，.venv/ 只匹配目录）
+.venv
 .venv/
+venv
 venv/
 
 # Python
