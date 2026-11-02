@@ -1,0 +1,9 @@
+Qwen3-4B Code Style LoRA
+Copyright 2026 Mao Zhiqin (Leo Postel)
+
+This product includes model weights derived from Qwen3-4B
+(https://huggingface.co/Qwen/Qwen3-4B),
+Copyright 2024 Alibaba Cloud, licensed under the Apache License, Version 2.0.
+
+The base model weights are NOT redistributed in this repository; only the
+LoRA adapter trained on top of them is derived from that work.

@@ -1,0 +1,1550 @@
+[
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "用 scikit-learn 风格实现一个 KNN 分类器，兼容 estimator API（fit/predict），参数接受二维实数序列，fit 返回 self，predict 返回 np.ndarray。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport numpy as np\nfrom numbers import Real\nfrom typing import Sequence\nfrom sklearn.base import BaseEstimator, ClassifierMixin\nfrom sklearn.utils.multiclass import unique_labels\nfrom sklearn.utils.validation import check_array, check_is_fitted, check_X_y\n\n\nclass KNN(ClassifierMixin, BaseEstimator):\n    def __init__(self, n_neighbors: int = 5) -> None:\n        self.n_neighbors = n_neighbors\n\n    def fit(\n        self, X: Sequence[Sequence[Real]], y: Sequence[Real]\n    ) -> \"KNN\":\n        X, y = check_X_y(X, y)\n        self.classes_ = unique_labels(y)\n        self.X_ = X\n        self.y_ = y\n        return self\n\n    def predict(self, X: Sequence[Sequence[Real]]) -> np.ndarray:\n        check_is_fitted(self, [\"X_\", \"y_\"])\n        X = check_array(X)\n        distances = np.sqrt(\n            np.sum((X[:, None, :] - self.X_[None, :, :]) ** 2, axis=2)\n        )\n        indices = np.argsort(distances, axis=1)[:, : self.n_neighbors]\n        nearest_labels = self.y_[indices]\n        predictions = np.empty(len(X), dtype=self.classes_.dtype)\n        for i, row in enumerate(nearest_labels):\n            values, counts = np.unique(row, return_counts=True)\n            predictions[i] = values[np.argmax(counts)]\n        return predictions\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "用 scikit-learn 风格实现一个 KMeans 聚类类，支持 max_iter、tol、random_state 参数，空簇时随机重选中心，predict 返回 np.ndarray。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport numpy as np\nfrom collections.abc import Sequence\nfrom numbers import Real\nfrom typing import Optional\nfrom sklearn.base import BaseEstimator, ClusterMixin\nfrom sklearn.utils.validation import check_array, check_is_fitted\n\n\nclass KMeans(ClusterMixin, BaseEstimator):\n    def __init__(\n        self,\n        n_clusters: int,\n        max_iter: int = 200,\n        tol: Real = 1e-4,\n        random_state: Optional[int] = None,\n    ) -> None:\n        self.n_clusters = n_clusters\n        self.max_iter = max_iter\n        self.tol = tol\n        self.random_state = random_state\n\n    def fit(\n        self, X: Sequence[Sequence[Real]], y=None\n    ) -> \"KMeans\":\n        X = check_array(X)\n        rng = np.random.default_rng(self.random_state)\n        self.cluster_centers_ = self._random_centers(X, rng)\n        for _ in range(self.max_iter):\n            labels = self._assign(X)\n            new_centers = self._update(X, labels, rng)\n            if self._converged(new_centers, self.cluster_centers_):\n                self.cluster_centers_ = new_centers\n                break\n            self.cluster_centers_ = new_centers\n        self.labels_ = self._assign(X)\n        self.n_features_in_ = X.shape[1]\n        return self\n\n    def predict(self, X: Sequence[Sequence[Real]]) -> np.ndarray:\n        check_is_fitted(self, [\"cluster_centers_\"])\n        X = check_array(X)\n        return self._assign(X)\n\n    def _random_centers(\n        self, X: np.ndarray, rng: np.random.Generator\n    ) -> np.ndarray:\n        indices = rng.choice(len(X), self.n_clusters, replace=False)\n        return X[indices].copy()\n\n    def _assign(self, X: np.ndarray) -> np.ndarray:\n        distances = np.sqrt(\n            np.sum((X[:, None, :] - self.cluster_centers_[None, :, :]) ** 2, axis=2)\n        )\n        return np.argmin(distances, axis=1)\n\n    def _update(\n        self, X: np.ndarray, labels: np.ndarray, rng: np.random.Generator\n    ) -> np.ndarray:\n        new_centers = np.empty_like(self.cluster_centers_)\n        for k in range(self.n_clusters):\n            cluster_points = X[labels == k]\n            if len(cluster_points) == 0:\n                new_centers[k] = X[rng.integers(len(X))]\n            else:\n                new_centers[k] = cluster_points.mean(axis=0)\n        return new_centers\n\n    def _converged(\n        self, new_centers: np.ndarray, old_centers: np.ndarray\n    ) -> bool:\n        return float(np.sum((new_centers - old_centers) ** 2)) < self.tol\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "用 scikit-learn 风格实现一个 Fuzzy C-Means 聚类类，隶属度指数 m 必须大于 1，支持 max_iter/tol/random_state，fit 记录隶属度矩阵与硬标签。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport numpy as np\nfrom numbers import Real\nfrom typing import Optional, Sequence\nfrom sklearn.base import BaseEstimator, ClusterMixin\nfrom sklearn.utils.validation import check_array, check_is_fitted\n\n\nclass FuzzyCMeans(ClusterMixin, BaseEstimator):\n    def __init__(\n        self,\n        n_clusters: int,\n        m: Real = 2.0,\n        max_iter: int = 200,\n        tol: Real = 1e-4,\n        random_state: Optional[int] = None,\n    ) -> None:\n        self.n_clusters = n_clusters\n        self.m = m\n        self.max_iter = max_iter\n        self.tol = tol\n        self.random_state = random_state\n\n    def fit(\n        self, X: Sequence[Sequence[Real]], y=None\n    ) -> \"FuzzyCMeans\":\n        X = check_array(X)\n        if self.m <= 1.0:\n            raise ValueError(\"m must be greater than 1.\")\n        rng = np.random.default_rng(self.random_state)\n        self.cluster_centers_ = self._random_centers(X, rng)\n        for _ in range(self.max_iter):\n            memberships = self._assign(X)\n            new_centers = self._update(X, memberships)\n            if self._converged(new_centers, self.cluster_centers_):\n                self.cluster_centers_ = new_centers\n                break\n            self.cluster_centers_ = new_centers\n        self.memberships_ = self._assign(X)\n        self.labels_ = np.argmax(self.memberships_, axis=1)\n        self.n_features_in_ = X.shape[1]\n        return self\n\n    def predict(self, X: Sequence[Sequence[Real]]) -> np.ndarray:\n        check_is_fitted(self, [\"cluster_centers_\"])\n        X = check_array(X)\n        return np.argmax(self._assign(X), axis=1)\n\n    def _random_centers(\n        self, X: np.ndarray, rng: np.random.Generator\n    ) -> np.ndarray:\n        indices = rng.choice(len(X), self.n_clusters, replace=False)\n        return X[indices].copy()\n\n    def _distances(self, X: np.ndarray) -> np.ndarray:\n        return np.sqrt(\n            np.sum((X[:, None, :] - self.cluster_centers_[None, :, :]) ** 2, axis=2)\n        )\n\n    def _assign(self, X: np.ndarray) -> np.ndarray:\n        distances = np.maximum(self._distances(X), 1e-12)\n        power = 2.0 / (float(self.m) - 1.0)\n        inv = distances ** (-power)\n        return inv / inv.sum(axis=1, keepdims=True)\n\n    def _update(self, X: np.ndarray, memberships: np.ndarray) -> np.ndarray:\n        weights = memberships ** float(self.m)\n        return (weights.T @ X) / weights.sum(axis=0)[:, None]\n\n    def _converged(\n        self, new_centers: np.ndarray, old_centers: np.ndarray\n    ) -> bool:\n        return float(np.sum((new_centers - old_centers) ** 2)) < self.tol\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个按指定键函数去重的函数，输入可以是列表、元组或生成器，返回列表，空输入返回空列表，不要改动原数据。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Callable, Hashable, Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T')\nK = TypeVar('K', bound=Hashable)\n\n\ndef dedupe_by(items: Iterable[T], key: Callable[[T], K]) -> list[T]:\n    \"\"\"按键去重，保留第一次出现的元素。\"\"\"\n    seen: set[K] = set()\n    out: list[T] = []\n    for item in items:\n        mark = key(item)\n        if mark not in seen:\n            seen.add(mark)\n            out.append(item)\n    return out\n\n\nif __name__ == '__main__':\n    print(dedupe_by(['aa', 'ab', 'bb'], len))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个按显示宽度截断字符串的函数，参数是普通字符串和整数都行，全角字符算两列不能切一半，返回 str，宽度为 0 时返回空字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport unicodedata\nfrom numbers import Integral\n\n\ndef char_width(ch: str) -> int:\n    \"\"\"全角或宽字符按 2 列计算，其余按 1 列。\"\"\"\n    return 2 if unicodedata.east_asian_width(ch) in ('W', 'F') else 1\n\n\ndef truncate_width(text: str, width: Integral) -> str:\n    \"\"\"按终端显示宽度截断，不把宽字符切成一半。\"\"\"\n    limit = int(width)\n    used = 0\n    out: list[str] = []\n    for ch in text:\n        step = char_width(ch)\n        if used + step > limit:\n            break\n        used += step\n        out.append(ch)\n    return ''.join(out)\n\n\nif __name__ == '__main__':\n    print(truncate_width('你好abc', 5))\n    print(truncate_width('abcdef', 0))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个原子写文本文件的函数，路径接受 str 或 Path，内容按 UTF-8 写入，先写临时文件再替换，父目录不存在返回 False。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport os\nimport tempfile\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef atomic_write(path: str | PathLike[str], text: str) -> bool:\n    \"\"\"先写临时文件再原子替换，父目录不存在时返回 False。\"\"\"\n    target = Path(path)\n    if not target.parent.is_dir():\n        return False\n    fd, tmp = tempfile.mkstemp(dir=target.parent, prefix='.tmp-')\n    try:\n        with os.fdopen(fd, 'w', encoding='utf-8') as fh:\n            fh.write(text)\n        os.replace(tmp, target)\n    finally:\n        if os.path.exists(tmp):\n            os.unlink(tmp)\n    return True\n\n\nif __name__ == '__main__':\n    with tempfile.TemporaryDirectory() as td:\n        print(atomic_write(Path(td) / 'a.txt', 'hi'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个安全除法的函数，参数接受任意实数，结果一律返回 float，除数为 0 时返回默认值 0.0 而不是抛异常。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Real\n\n\ndef safe_div(numerator: Real, denominator: Real, default: Real = 0.0) -> float:\n    \"\"\"做除法，除数为 0 时返回 default。\"\"\"\n    if denominator == 0:\n        return float(default)\n    return float(numerator) / float(denominator)\n\n\nif __name__ == '__main__':\n    print(safe_div(1, 2))\n    print(safe_div(1, 0))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个去重保序的函数，参数要能接受任意可迭代对象，元素是任意可哈希类型，返回列表，空输入返回空列表，不要修改传入的对象。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef unique(xs: Iterable[T]) -> list[T]:\n    \"\"\"去重并保持首次出现的顺序。\"\"\"\n    seen: set[T] = set()\n    out: list[T] = []\n    for x in xs:\n        if x not in seen:\n            seen.add(x)\n            out.append(x)\n    return out\n\n\nif __name__ == '__main__':\n    print(unique([3, 1, 3, 2]))\n    print(unique(iter('aabbc')))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个按任意键函数把元素分组的函数，参数支持任何可迭代对象，返回普通 dict，空输入返回空 dict。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Callable, Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T')\nK = TypeVar('K')\n\n\ndef group_values(items: Iterable[T], key: Callable[[T], K]) -> dict[K, list[T]]:\n    \"\"\"按键分组，组内保持原始顺序。\"\"\"\n    out: dict[K, list[T]] = {}\n    for item in items:\n        out.setdefault(key(item), []).append(item)\n    return out\n\n\nif __name__ == '__main__':\n    print(group_values(range(6), lambda n: n % 3))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个把文本变成 URL slug 的函数，参数要能接受任意可迭代的字符串片段，返回小写 str，连续非字母数字压成一个连字符，空输入返回空字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport re\nimport unicodedata\nfrom collections.abc import Iterable\n\nSEPARATOR = re.compile('[^a-z0-9]+')\n\n\ndef slugify(parts: Iterable[str], sep: str = '-') -> str:\n    \"\"\"把若干文本片段拼成小写 slug，非字母数字压成一个分隔符。\"\"\"\n    text = ' '.join(parts).lower()\n    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')\n    return SEPARATOR.sub(sep, text).strip(sep)\n\n\nif __name__ == '__main__':\n    print(slugify(['Hello', 'World 2024']))\n    print(slugify([], '-'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个递归找指定后缀文件的函数，根目录接受 str 或 Path，后缀可传多个且忽略大小写，返回排好序的 Path 列表，根目录不存在返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef find_by_suffix(root: str | PathLike[str], suffixes: Iterable[str]) -> list[Path]:\n    \"\"\"递归查找后缀匹配的文件（忽略大小写），按路径排序。\"\"\"\n    base = Path(root)\n    if not base.is_dir():\n        return []\n    wanted = {s.lower() if s.startswith('.') else '.' + s.lower() for s in suffixes}\n    return sorted(p for p in base.rglob('*') if p.is_file() and p.suffix.lower() in wanted)\n\n\nif __name__ == '__main__':\n    print(find_by_suffix('.', ['py', '.TXT'])[:3])\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个把数值截断到区间的函数，值、下界、上界都接受整数或浮点，下界大于上界时抛 ValueError。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Real\n\n\ndef clamp(value: Real, low: Real, high: Real) -> float:\n    \"\"\"把 value 截断到闭区间 [low, high]。\"\"\"\n    if low > high:\n        raise ValueError('low must not exceed high')\n    if value < low:\n        return float(low)\n    if value > high:\n        return float(high)\n    return float(value)\n\n\nif __name__ == '__main__':\n    print(clamp(5, 0, 3))\n    print(clamp(-1, 0, 3))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个把映射里的值累加求和的小函数，参数希望 str 键、任意数值都行，返回 float，空映射返回 0.0，不要依赖第三方库。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Mapping\nfrom numbers import Real\n\n\ndef total(mapping: Mapping[str, Real]) -> float:\n    \"\"\"累加映射中的所有数值，空映射返回 0.0。\"\"\"\n    acc = 0.0\n    for value in mapping.values():\n        acc += float(value)\n    return acc\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个把二维可迭代对象摊平一层的函数，参数接受任何可迭代对象，返回 list，某一行为空时不影响其他行。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef flatten_once(rows: Iterable[Iterable[T]]) -> list[T]:\n    \"\"\"把二维可迭代对象摊平一层，空行不产生元素。\"\"\"\n    return [item for row in rows for item in row]\n\n\nif __name__ == '__main__':\n    print(flatten_once([[1, 2], (3,), iter([4])]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个把驼峰标识符转成蛇形的函数，输入可以是列表、元组或生成器，返回新的 list，连续大写按缩写处理，空输入返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\n\n\ndef to_snake(names: Iterable[str]) -> list[str]:\n    \"\"\"把驼峰标识符转成小写蛇形，连续大写按缩写整体处理。\"\"\"\n    out: list[str] = []\n    for name in names:\n        chars: list[str] = []\n        for i, ch in enumerate(name):\n            prev_upper = i > 0 and name[i - 1].isupper()\n            next_lower = i + 1 < len(name) and name[i + 1].islower()\n            if ch.isupper() and i > 0 and (not prev_upper or next_lower):\n                chars.append('_')\n            chars.append(ch.lower())\n        out.append(''.join(chars))\n    return out\n\n\nif __name__ == '__main__':\n    print(to_snake(['HTTPServer', 'userId']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个读 JSON 配置文件的函数，路径接受 str 或 Path，文件缺失或内容坏掉都返回空 dict，顶层不是映射也返回空 dict。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport json\nimport tempfile\nfrom collections.abc import Mapping\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef load_config(path: str | PathLike[str]) -> dict[str, object]:\n    \"\"\"读取 JSON 配置；文件缺失、解析失败或顶层不是映射时返回空 dict。\"\"\"\n    target = Path(path)\n    if not target.is_file():\n        return {}\n    try:\n        data = json.loads(target.read_text(encoding='utf-8'))\n    except (OSError, ValueError):\n        return {}\n    if not isinstance(data, Mapping):\n        return {}\n    return dict(data)\n\n\nif __name__ == '__main__':\n    with tempfile.TemporaryDirectory() as td:\n        sample = Path(td) / 'conf.json'\n        sample.write_text(json.dumps({'n': 1}), encoding='utf-8')\n        print(load_config(sample))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个算百分比的函数，分子分母都接受任意实数，结果保留一位小数，分母为 0 时返回 0.0。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Real\n\n\ndef percentage(part: Real, whole: Real) -> float:\n    \"\"\"计算 part 占 whole 的百分比，分母为 0 时返回 0.0。\"\"\"\n    if whole == 0:\n        return 0.0\n    return round(float(part) / float(whole) * 100.0, 1)\n\n\nif __name__ == '__main__':\n    print(percentage(1, 3))\n    print(percentage(3, 4))\n    print(percentage(1, 0))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个按对象自带的评分属性排序的函数，参数接受任何带 score 属性的对象序列，返回升序的新列表，不要改动原序列。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom typing import Protocol, TypeVar\n\nS = TypeVar('S', bound='Scored')\n\n\nclass Scored(Protocol):\n    score: float\n\n\ndef sort_scored(items: Iterable[S]) -> list[S]:\n    \"\"\"按对象的 score 属性升序排序，返回新列表。\"\"\"\n    return sorted(items, key=lambda item: item.score)\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个取最大的前 k 个元素的函数，参数任意可迭代的数值都行，返回降序列表，k 小于等于 0 时返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport heapq\nfrom collections.abc import Iterable\nfrom numbers import Integral, Real\n\n\ndef top_k(values: Iterable[Real], k: Integral) -> list[float]:\n    \"\"\"返回最大的 k 个值并降序排列，k 非正时返回空列表。\"\"\"\n    if k <= 0:\n        return []\n    numbers = [float(value) for value in values]\n    return heapq.nlargest(int(k), numbers)\n\n\nif __name__ == '__main__':\n    print(top_k([3, 9, 1, 7], 2))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个拆分标识符为单词的函数，参数接受任意可迭代对象，遇到下划线、空格和大小写变化都要切开，返回 list，空输入返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport re\nfrom collections.abc import Iterable\n\nSPLIT = re.compile('(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|[^A-Za-z0-9]+')\n\n\ndef split_words(identifiers: Iterable[str]) -> list[str]:\n    \"\"\"把标识符拆成小写单词列表，下划线、连字符和大小写变化都算分隔。\"\"\"\n    out: list[str] = []\n    for name in identifiers:\n        out.extend(word.lower() for word in SPLIT.split(name) if word)\n    return out\n\n\nif __name__ == '__main__':\n    print(split_words(['getHTTPServer', 'snake_case']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个往 JSONL 追加一条记录的函数，路径接受 str 或 Path，记录是任意映射，父目录不存在先建好，返回写完后的总行数。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport json\nimport tempfile\nfrom collections.abc import Mapping\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef append_jsonl(path: str | PathLike[str], record: Mapping[str, object]) -> int:\n    \"\"\"追加一行 JSON 到文件，返回写入后的总行数。\"\"\"\n    target = Path(path)\n    target.parent.mkdir(parents=True, exist_ok=True)\n    with target.open('a', encoding='utf-8') as fh:\n        print(json.dumps(dict(record), ensure_ascii=False), file=fh)\n    with target.open(encoding='utf-8') as fh:\n        return sum(1 for _ in fh)\n\n\nif __name__ == '__main__':\n    with tempfile.TemporaryDirectory() as td:\n        print(append_jsonl(Path(td) / 'a.jsonl', {'n': 1}))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个把秒数拆成时分秒的函数，秒数接受任意实数并向下取整，负数一律返回 (0, 0, 0) 元组。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Real\n\n\ndef split_seconds(total: Real) -> tuple[int, int, int]:\n    \"\"\"把秒数拆成 (时, 分, 秒)，负数返回 (0, 0, 0)。\"\"\"\n    seconds = int(total)\n    if seconds <= 0:\n        return (0, 0, 0)\n    hours, remainder = divmod(seconds, 3600)\n    minutes, secs = divmod(remainder, 60)\n    return (hours, minutes, secs)\n\n\nif __name__ == '__main__':\n    print(split_seconds(3661))\n    print(split_seconds(-5))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个把整数格式化成带千分位逗号字符串的函数，参数接受任意整数类型，返回 str，0 返回 0，负数保留负号。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Integral\n\n\ndef format_thousands(value: Integral) -> str:\n    \"\"\"把整数格式化为带千分位逗号的字符串。\"\"\"\n    text = str(int(value))\n    sign = ''\n    if text.startswith('-'):\n        sign = '-'\n        text = text[1:]\n    groups: list[str] = []\n    while len(text) > 3:\n        groups.append(text[-3:])\n        text = text[:-3]\n    groups.append(text)\n    return sign + ','.join(reversed(groups))\n\n\nif __name__ == '__main__':\n    print(format_thousands(-1234567))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个求滑动窗口的函数，输入可以是任何可迭代序列，返回窗口元组组成的列表，窗口长度超过数据长度时返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable, Sequence\nfrom numbers import Integral\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef sliding_windows(items: Iterable[T], size: Integral) -> list[tuple[T, ...]]:\n    \"\"\"切出所有固定宽度的滑动窗口，窗口大于数据长度时返回空列表。\"\"\"\n    seq: Sequence[T] = tuple(items)\n    width = int(size)\n    if width <= 0 or width > len(seq):\n        return []\n    return [seq[start:start + width] for start in range(len(seq) - width + 1)]\n\n\nif __name__ == '__main__':\n    print(sliding_windows('abcde', 3))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个净化文件名的函数，名字是普通字符串，非法字符替换成下划线，长度上限可传整数，返回 str，全是非法字符时返回 untitled。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Integral\n\nUNSAFE = frozenset('<>:\"/|?*')\n\n\ndef sanitize_filename(name: str, max_len: Integral = 255) -> str:\n    \"\"\"替换文件名中的非法字符，去掉首尾空格和点，超长时截断主干保留后缀。\"\"\"\n    cleaned = ''.join('_' if ch in UNSAFE or ord(ch) < 32 else ch for ch in name).strip(' .')\n    if not cleaned:\n        return 'untitled'\n    limit = int(max_len)\n    if len(cleaned) <= limit:\n        return cleaned\n    stem, dot, ext = cleaned.rpartition('.')\n    if not dot:\n        return cleaned[:limit]\n    return stem[:max(limit - len(ext) - 1, 0)] + '.' + ext\n\n\nif __name__ == '__main__':\n    print(sanitize_filename(' report<>:*.txt '))\n    print(sanitize_filename('...'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个确保目录存在的函数，路径接受 str 或 Path，可以一次建多级，已存在时不要报错，返回解析后的绝对 Path。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport tempfile\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef ensure_dir(path: str | PathLike[str], mode: int = 0o755) -> Path:\n    \"\"\"创建目录（含多级父目录），已存在时不报错，返回解析后的绝对路径。\"\"\"\n    target = Path(path).expanduser().resolve()\n    target.mkdir(mode=mode, parents=True, exist_ok=True)\n    return target\n\n\nif __name__ == '__main__':\n    with tempfile.TemporaryDirectory() as td:\n        deep = ensure_dir(Path(td) / 'a' / 'b')\n        print(deep.is_dir(), deep == ensure_dir(deep))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个求平均值的函数，参数要能接受任意可迭代的实数，不要修改传入的对象，空输入返回 0.0。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom numbers import Real\n\n\ndef mean(xs: Iterable[Real]) -> float:\n    \"\"\"求平均值，空输入返回 0.0。\"\"\"\n    total = 0.0\n    count = 0\n    for value in xs:\n        total += float(value)\n        count += 1\n    if count == 0:\n        return 0.0\n    return total / count\n\n\nif __name__ == '__main__':\n    print(mean([1, 2, 3, 4]))\n    print(mean(iter([])))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个反转映射的函数，参数接受任意映射对象，返回值到键列表的普通 dict，同一个值对应的多个键按原始顺序排列。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Mapping\nfrom typing import TypeVar\n\nK = TypeVar('K')\nV = TypeVar('V')\n\n\ndef invert(mapping: Mapping[K, V]) -> dict[V, list[K]]:\n    \"\"\"把 key 到 value 的映射反转为 value 到 [key, ...]。\"\"\"\n    out: dict[V, list[K]] = {}\n    for key, value in mapping.items():\n        out.setdefault(value, []).append(key)\n    return out\n\n\nif __name__ == '__main__':\n    print(invert({'a': 1, 'b': 2, 'c': 1}))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个把序列按固定大小分块的函数，参数接受任意可迭代对象，返回二维列表，块大小为 0 时返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom numbers import Integral\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef chunked(items: Iterable[T], size: Integral) -> list[list[T]]:\n    \"\"\"按固定大小分块，最后一块允许不满；size 非正时返回空列表。\"\"\"\n    width = int(size)\n    data = list(items)\n    if width <= 0:\n        return []\n    return [data[start:start + width] for start in range(0, len(data), width)]\n\n\nif __name__ == '__main__':\n    print(chunked(range(7), 3))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个填充模板占位符的函数，模板里的 $name 用映射里的值替换，参数接受任意 Mapping，返回 str，缺失的键保留原样不抛异常。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Mapping\nfrom string import Template\n\n\ndef render_template(template: str, values: Mapping[str, str]) -> str:\n    \"\"\"填充 $name 占位符，缺失的键原样保留，不会抛 KeyError。\"\"\"\n    return Template(template).safe_substitute(dict(values))\n\n\ndef missing_keys(template: str, values: Mapping[str, str]) -> list[str]:\n    \"\"\"列出模板里没被 values 覆盖的占位符名字。\"\"\"\n    return [key for key in Template(template).get_identifiers() if key not in values]\n\n\nif __name__ == '__main__':\n    print(render_template('hi $name, $x', {'name': 'bob'}))\n    print(missing_keys('hi $name, $x', {'name': 'bob'}))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个按后缀分组路径的函数，输入可以是任意可迭代的 str 或 Path，后缀统一小写做键，返回 dict，空输入返回空 dict。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef group_by_suffix(paths: Iterable[str | PathLike[str]]) -> dict[str, list[Path]]:\n    \"\"\"按小写后缀分组，没有后缀的归到空字符串键。\"\"\"\n    groups: dict[str, list[Path]] = {}\n    for raw in paths:\n        item = Path(raw)\n        groups.setdefault(item.suffix.lower(), []).append(item)\n    return groups\n\n\nif __name__ == '__main__':\n    print(group_by_suffix(['a.py', 'b.PY', 'c']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个加权平均的函数，数值和权重都接受任意可迭代对象，长度不一致时抛 ValueError，空输入返回 0.0。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom numbers import Real\n\n\ndef weighted_mean(values: Iterable[Real], weights: Iterable[Real]) -> float:\n    \"\"\"按权重求平均，长度不一致抛 ValueError，空输入返回 0.0。\"\"\"\n    numbers = [float(value) for value in values]\n    factors = [float(weight) for weight in weights]\n    if len(numbers) != len(factors):\n        raise ValueError('values and weights must have the same length')\n    if not numbers:\n        return 0.0\n    total = sum(factors)\n    if total == 0.0:\n        return 0.0\n    return sum(number * factor for number, factor in zip(numbers, factors)) / total\n\n\nif __name__ == '__main__':\n    print(weighted_mean([1, 2], [1, 3]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个统计数值序列的函数，输入任意可迭代的浮点数，返回一个不可变的统计结果对象，包含个数、均值和最大值，空输入返回全零。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom dataclasses import dataclass\nfrom numbers import Real\n\n\n@dataclass(frozen=True)\nclass Stats:\n    count: int\n    mean: float\n    maximum: float\n\n\ndef summarize(xs: Iterable[Real]) -> Stats:\n    \"\"\"计算个数、均值与最大值，空输入返回全零。\"\"\"\n    values = list(xs)\n    if not values:\n        return Stats(0, 0.0, 0.0)\n    return Stats(len(values), sum(values) / len(values), max(values))\n\n\nif __name__ == '__main__':\n    print(summarize([1.0, 2.0, 3.0]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个交错合并多个可迭代对象的函数，参数来几个都行，返回合并后的列表，某个序列提前耗尽时跳过它。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom itertools import zip_longest\nfrom typing import TypeVar\n\nT = TypeVar('T')\n_MISSING = object()\n\n\ndef interleave(*sources: Iterable[T]) -> list[T]:\n    \"\"\"轮流取出各个序列的元素，耗尽的序列自动跳过。\"\"\"\n    out: list[T] = []\n    for group in zip_longest(*sources, fillvalue=_MISSING):\n        out.extend(item for item in group if item is not _MISSING)\n    return out\n\n\nif __name__ == '__main__':\n    print(interleave([1, 2, 3], iter('ab')))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个按宽度折行的函数，文本是字符串、宽度传整数，返回 list，空文本返回空列表，已有段落换行不能被破坏。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport textwrap\nfrom numbers import Integral\n\n\ndef wrap_text(text: str, width: Integral) -> list[str]:\n    \"\"\"按给定宽度折行，保留原有段落，空文本返回空列表。\"\"\"\n    limit = int(width)\n    if limit < 1 or not text.strip():\n        return []\n    lines: list[str] = []\n    for paragraph in text.splitlines():\n        lines.extend(textwrap.wrap(paragraph, limit) or [''])\n    return lines\n\n\nif __name__ == '__main__':\n    print(wrap_text('hello world foo', 8))\n    print(wrap_text('', 10))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个读文本全部行的函数，路径接受 str 或 Path，编码默认 UTF-8 可覆盖，返回去掉行尾换行的 list，文件不存在返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport tempfile\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef read_lines(path: str | PathLike[str], encoding: str = 'utf-8') -> list[str]:\n    \"\"\"读取所有行并去掉行尾换行；文件不存在时返回空列表。\"\"\"\n    target = Path(path)\n    if not target.is_file():\n        return []\n    with target.open(encoding=encoding) as fh:\n        return fh.read().splitlines()\n\n\nif __name__ == '__main__':\n    with tempfile.TemporaryDirectory() as td:\n        sample = Path(td) / 'a.txt'\n        sample.write_text('x', encoding='utf-8')\n        print(read_lines(sample))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个线性插值的函数，起点、终点和比例都接受任意实数，结果返回 float，比例超出 0 到 1 时按端点截断。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Real\n\n\ndef lerp(start: Real, end: Real, ratio: Real) -> float:\n    \"\"\"线性插值，比例超出 [0, 1] 时按端点截断。\"\"\"\n    factor = min(max(float(ratio), 0.0), 1.0)\n    first = float(start)\n    return first + (float(end) - first) * factor\n\n\nif __name__ == '__main__':\n    print(lerp(0, 10, 0.25))\n    print(lerp(0, 10, 2))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个按键函数稳定排序的函数，输入可以是列表或生成器，返回新列表，元素相等时保持原来的先后顺序。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Callable, Iterable\nfrom typing import Any, TypeVar\n\nT = TypeVar('T')\n\n\ndef sort_stable(rows: Iterable[T], key: Callable[[T], Any]) -> list[T]:\n    \"\"\"按键稳定排序并返回新列表，相等元素保持原顺序。\"\"\"\n    return sorted(rows, key=key)\n\n\nif __name__ == '__main__':\n    print(sort_stable(['bb', 'a', 'cc'], len))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个给关键词高亮的函数，文本里出现的关键词加标记，关键词接受任意可迭代对象，返回 str，关键词为空时原样返回文本。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport re\nfrom collections.abc import Iterable\n\n\ndef highlight(text: str, words: Iterable[str], left: str = '[', right: str = ']') -> str:\n    \"\"\"给文本里出现的所有关键词加标记，长词优先，没有关键词时原样返回。\"\"\"\n    keys = sorted({word for word in words if word}, key=len, reverse=True)\n    if not keys:\n        return text\n    pattern = re.compile('|'.join(re.escape(word) for word in keys))\n    return pattern.sub(lambda match: left + match.group(0) + right, text)\n\n\nif __name__ == '__main__':\n    print(highlight('a cat and a dog', ['cat', 'dog']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个统计目录总大小的函数，根路径接受 str 或 Path，只累加普通文件，返回 int 字节数，目录不存在返回 0。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport tempfile\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef total_size(root: str | PathLike[str]) -> int:\n    \"\"\"递归累加所有普通文件的字节数；根目录不存在返回 0。\"\"\"\n    base = Path(root)\n    if not base.is_dir():\n        return 0\n    total = 0\n    for item in base.rglob('*'):\n        try:\n            if item.is_file():\n                total += item.stat().st_size\n        except OSError:\n            continue\n    return total\n\n\nif __name__ == '__main__':\n    with tempfile.TemporaryDirectory() as td:\n        (Path(td) / 'a.txt').write_bytes(b'abc')\n        print(total_size(td))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个计算分页边界的函数，页码、每页条数和总数都接受任意整数，返回起点和终点的元组，总数不足一页时自动收敛。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Integral\n\n\ndef page_bounds(page: Integral, size: Integral, total: Integral) -> tuple[int, int]:\n    \"\"\"返回第 page 页在 [0, total) 上的半开区间，参数非正时抛 ValueError。\"\"\"\n    current, step, count = int(page), int(size), max(int(total), 0)\n    if current < 1 or step < 1:\n        raise ValueError('page and size must be positive')\n    start = min((current - 1) * step, count)\n    return (start, min(start + step, count))\n\n\nif __name__ == '__main__':\n    print(page_bounds(3, 2, 5))\n    print(page_bounds(1, 10, 0))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个比较两个集合的函数，参数接受任意可迭代对象，返回交集和两侧差集的元组，输入为空时返回三个空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef compare_sets(left: Iterable[T], right: Iterable[T]) -> tuple[list[T], list[T], list[T]]:\n    \"\"\"返回交集、只在左边、只在右边三组去重结果，保持首次出现顺序。\"\"\"\n    lhs = list(dict.fromkeys(left))\n    rhs = list(dict.fromkeys(right))\n    right_marks = set(rhs)\n    left_marks = set(lhs)\n    common = [item for item in lhs if item in right_marks]\n    only_left = [item for item in lhs if item not in right_marks]\n    only_right = [item for item in rhs if item not in left_marks]\n    return common, only_left, only_right\n\n\nif __name__ == '__main__':\n    print(compare_sets('abc', 'bcd'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个把纯文本转义成 HTML 的函数，参数接受任意可迭代的文本行，返回 str，尖括号和引号都要转义，空输入返回空字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom html import escape\n\nLINE = chr(10)\n\n\ndef escape_block(lines: Iterable[str]) -> str:\n    \"\"\"把纯文本逐行做 HTML 转义后用换行拼回，空行保留。\"\"\"\n    return LINE.join(escape(line, quote=True) for line in lines)\n\n\ndef escape_all(chunks: Iterable[str]) -> str:\n    \"\"\"转义任意多段文本片段并直接拼接，不插入换行。\"\"\"\n    return ''.join(escape(chunk, quote=True) for chunk in chunks)\n\n\nif __name__ == '__main__':\n    print(escape_block(['<b>hi</b>', 'a & b']))\n    print(escape_all(['<', '>']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个计算安全相对路径的函数，两个参数都接受 str 或 Path，结果不能跑出根目录，越界返回 None，分隔符统一用正斜杠。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport os\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef safe_relative(root: str | PathLike[str], target: str | PathLike[str]) -> str | None:\n    \"\"\"计算相对 root 的安全路径，越界或等于 root 自身时返回 None。\"\"\"\n    base = Path(root).resolve()\n    full = Path(target).resolve()\n    if full == base or base not in full.parents:\n        return None\n    return os.path.relpath(full, base).replace(os.sep, '/')\n\n\nif __name__ == '__main__':\n    print(safe_relative('.', 'a/b'))\n    print(safe_relative('.', '/etc/hosts'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个算分页偏移量的函数，页码接受任意整数，页码小于 1 时按第一页处理，每页条数非正按 0 偏移。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Integral\n\n\ndef page_offset(page: Integral, size: Integral) -> int:\n    \"\"\"计算分页偏移量，页码小于 1 按第一页算，条数非正按 0 算。\"\"\"\n    current = max(int(page), 1)\n    step = max(int(size), 0)\n    return (current - 1) * step\n\n\nif __name__ == '__main__':\n    print(page_offset(3, 2))\n    print(page_offset(0, 10))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个统计元素出现次数的函数，参数任意可哈希元素的可迭代对象都行，返回 dict，空输入返回空 dict。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections import Counter\nfrom collections.abc import Hashable, Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T', bound=Hashable)\n\n\ndef count_items(items: Iterable[T]) -> dict[T, int]:\n    \"\"\"统计每个元素出现的次数，空输入返回空 dict。\"\"\"\n    return dict(Counter(items))\n\n\nif __name__ == '__main__':\n    print(count_items('abca'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个批量去掉前后缀的函数，输入可以是列表或生成器，只有完全匹配才剥离，返回 list，空输入返回空列表，不要原地修改。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\n\n\ndef strip_affixes(items: Iterable[str], prefix: str, suffix: str) -> list[str]:\n    \"\"\"批量剥离固定前后缀，只有完全匹配时才切掉。\"\"\"\n    out: list[str] = []\n    for item in items:\n        if prefix and item.startswith(prefix):\n            item = item[len(prefix):]\n        if suffix and item.endswith(suffix):\n            item = item[:-len(suffix)]\n        out.append(item)\n    return out\n\n\nif __name__ == '__main__':\n    print(strip_affixes(['pre_a', 'pre_b', 'raw'], 'pre_', ''))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个临时文件上下文管理器的函数，可以传后缀，返回能直接 with 的对象，块内拿到的是 Path，退出时自动删除文件。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport tempfile\nfrom collections.abc import Iterator\nfrom contextlib import contextmanager\nfrom os import PathLike\nfrom pathlib import Path\nfrom typing import ContextManager\n\n\n@contextmanager\ndef _holder(path: Path) -> Iterator[Path]:\n    try:\n        yield path\n    finally:\n        path.unlink(missing_ok=True)\n\n\ndef temp_file(\n    suffix: str = '',\n    directory: str | PathLike[str] | None = None,\n) -> ContextManager[Path]:\n    \"\"\"创建临时文件，离开 with 时自动删除，块内拿到 Path。\"\"\"\n    handle = tempfile.NamedTemporaryFile(\n        suffix=suffix,\n        dir=None if directory is None else str(directory),\n        delete=False,\n    )\n    handle.close()\n    return _holder(Path(handle.name))\n\n\nif __name__ == '__main__':\n    with temp_file('.txt') as p:\n        print(p.suffix)\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个重试装饰器函数，参数给最多尝试次数和间隔秒数，要保留被装饰函数的签名，全部失败后抛最后一次异常。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport time\nfrom collections.abc import Callable\nfrom numbers import Real\nfrom typing import ParamSpec, TypeVar\n\nP = ParamSpec('P')\nR = TypeVar('R')\n\n\ndef retry(attempts: int, delay: Real) -> Callable[[Callable[P, R]], Callable[P, R]]:\n    \"\"\"最多尝试 attempts 次，全部失败时抛出最后一次异常。\"\"\"\n\n    def wrap(fn: Callable[P, R]) -> Callable[P, R]:\n        def inner(*args: P.args, **kwargs: P.kwargs) -> R:\n            last: Exception | None = None\n            for _ in range(attempts):\n                try:\n                    return fn(*args, **kwargs)\n                except Exception as err:\n                    last = err\n                    time.sleep(delay)\n            raise last if last is not None else RuntimeError('no attempt')\n\n        return inner\n\n    return wrap\n\n\nif __name__ == '__main__':\n    calls: list[int] = []\n\n    @retry(2, 0.0)\n    def flaky(value: int) -> int:\n        calls.append(value)\n        if len(calls) < 2:\n            raise ValueError('boom')\n        return value * 2\n\n    print(flaky(3))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个按条件把序列一分为二的函数，参数能接受任意可迭代对象，返回两个列表的元组，空输入返回两个空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Callable, Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef partition_by(items: Iterable[T], keep: Callable[[T], bool]) -> tuple[list[T], list[T]]:\n    \"\"\"按谓词把元素分成两组，组内保持原始顺序。\"\"\"\n    yes: list[T] = []\n    no: list[T] = []\n    for item in items:\n        (yes if keep(item) else no).append(item)\n    return yes, no\n\n\nif __name__ == '__main__':\n    print(partition_by([1, 2, 3, 4], lambda n: n % 2 == 0))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个把秒数转成人类可读时长的函数，秒数接受任意实数，返回 str，负数按 0 处理，0 秒返回 0s。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Real\n\n\ndef human_duration(seconds: Real) -> str:\n    \"\"\"把秒数转成 1h 2m 3s 形式，负数按 0 处理，零秒返回 0s。\"\"\"\n    total = max(int(round(float(seconds))), 0)\n    parts: list[str] = []\n    for unit, size in (('d', 86400), ('h', 3600), ('m', 60)):\n        if total >= size:\n            parts.append(f'{total // size}{unit}')\n            total %= size\n    if total or not parts:\n        parts.append(f'{total}s')\n    return ' '.join(parts)\n\n\nif __name__ == '__main__':\n    print(human_duration(3725))\n    print(human_duration(-5))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个取尾部的函数，输入可以是任意可迭代对象，只保留最后 N 个，N 传负数按 0 处理，返回 list，元素不足时全给。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections import deque\nfrom collections.abc import Iterable\nfrom numbers import Integral\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef tail(items: Iterable[T], count: Integral) -> list[T]:\n    \"\"\"取最后 count 个元素；count <= 0 返回空列表，元素不足时全返回。\"\"\"\n    size = int(count)\n    if size <= 0:\n        return []\n    return list(deque(items, maxlen=size))\n\n\nif __name__ == '__main__':\n    print(tail(iter(range(10)), 3))\n    print(tail('abc', 0))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个限速装饰器函数，两次调用之间至少间隔给定的秒数，要保留原函数签名，间隔为 0 时不等待。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport time\nfrom collections.abc import Callable\nfrom functools import wraps\nfrom numbers import Real\nfrom typing import ParamSpec, TypeVar\n\nP = ParamSpec('P')\nR = TypeVar('R')\n\n\ndef throttle(min_interval: Real) -> Callable[[Callable[P, R]], Callable[P, R]]:\n    \"\"\"保证同一函数两次调用之间至少间隔 min_interval 秒。\"\"\"\n\n    def wrap(fn: Callable[P, R]) -> Callable[P, R]:\n        last = 0.0\n\n        @wraps(fn)\n        def inner(*args: P.args, **kwargs: P.kwargs) -> R:\n            nonlocal last\n            wait = min_interval - (time.monotonic() - last)\n            if wait > 0:\n                time.sleep(wait)\n            last = time.monotonic()\n            return fn(*args, **kwargs)\n\n        return inner\n\n    return wrap\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个摊平二维数据顺便去重的函数，参数接受任意可迭代对象，返回去重后的列表，重复元素只保留第一次出现的。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Hashable, Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T', bound=Hashable)\n\n\ndef flatten_unique(groups: Iterable[Iterable[T]]) -> list[T]:\n    \"\"\"摊平二维数据并去重，重复元素只保留首次出现。\"\"\"\n    seen: set[T] = set()\n    out: list[T] = []\n    for group in groups:\n        for item in group:\n            if item not in seen:\n                seen.add(item)\n                out.append(item)\n    return out\n\n\nif __name__ == '__main__':\n    print(flatten_unique([[1, 2], [2, 3]]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个把字节数转成可读大小的函数，大小接受实数，返回带单位的 str，负数按 0 处理，1 字节返回 1.0 B。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Real\n\nUNITS = ('B', 'KB', 'MB', 'GB', 'TB')\n\n\ndef human_size(size: Real) -> str:\n    \"\"\"把字节数转成 KB/MB/GB 等单位，保留一位小数，负数按 0 处理。\"\"\"\n    value = max(float(size), 0.0)\n    index = 0\n    while value >= 1024.0 and index < len(UNITS) - 1:\n        value /= 1024.0\n        index += 1\n    return f'{value:.1f} {UNITS[index]}'\n\n\nif __name__ == '__main__':\n    print(human_size(0))\n    print(human_size(1536))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个解析时间字符串的函数，可以传一组候选格式依次尝试，全部失败返回 None，返回值是 datetime 而不是字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Sequence\nfrom datetime import datetime\n\nDEFAULT = ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d')\n\n\ndef parse_time(text: str, formats: Sequence[str] = DEFAULT) -> datetime | None:\n    \"\"\"按候选格式依次尝试解析时间，全部失败返回 None。\"\"\"\n    for fmt in formats:\n        try:\n            return datetime.strptime(text.strip(), fmt)\n        except ValueError:\n            continue\n    return None\n\n\nif __name__ == '__main__':\n    print(parse_time('2024-05-01'))\n    print(parse_time('2024/05/01 08:00', ['%Y/%m/%d %H:%M']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个计时装饰器函数，装饰后打印一次调用的耗时秒数，要完整保留原函数签名，原函数抛异常时耗时也要打印。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport time\nfrom collections.abc import Callable\nfrom functools import wraps\nfrom typing import ParamSpec, TypeVar\n\nP = ParamSpec('P')\nR = TypeVar('R')\n\n\ndef timed(label: str = 'call') -> Callable[[Callable[P, R]], Callable[P, R]]:\n    \"\"\"装饰后打印一次调用耗时，返回值与签名保持不变。\"\"\"\n\n    def wrap(fn: Callable[P, R]) -> Callable[P, R]:\n        @wraps(fn)\n        def inner(*args: P.args, **kwargs: P.kwargs) -> R:\n            start = time.perf_counter()\n            try:\n                return fn(*args, **kwargs)\n            finally:\n                print(f'{label} took {time.perf_counter() - start:.4f}s')\n\n        return inner\n\n    return wrap\n\n\nif __name__ == '__main__':\n    @timed('add')\n    def add(a: int, b: int) -> int:\n        return a + b\n\n    print(add(1, 2))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个循环右移序列的函数，参数可以是任何序列，返回新列表，空序列或平移 0 位时原样返回。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Sequence\nfrom numbers import Integral\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef rotate(items: Sequence[T], steps: Integral) -> list[T]:\n    \"\"\"把序列循环右移指定步数，空序列或步数为 0 时原样返回。\"\"\"\n    data = list(items)\n    if not data:\n        return []\n    shift = int(steps) % len(data)\n    return data[-shift:] + data[:-shift]\n\n\nif __name__ == '__main__':\n    print(rotate([1, 2, 3, 4], 1))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个渲染等宽文本表格的函数，行接受任意可迭代的字符串序列，返回 str，空输入返回空字符串，各列左对齐。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable, Sequence\n\n\ndef render_table(rows: Iterable[Sequence[str]]) -> str:\n    \"\"\"把二维文本渲染成等宽表格，各列左对齐，空输入返回空字符串。\"\"\"\n    data = [[str(cell) for cell in row] for row in rows]\n    if not data:\n        return ''\n    columns = max(len(row) for row in data)\n    sizes = [0] * columns\n    for row in data:\n        for i, cell in enumerate(row):\n            sizes[i] = max(sizes[i], len(cell))\n    lines: list[str] = []\n    for row in data:\n        cells = [cell.ljust(sizes[i]) for i, cell in enumerate(row)]\n        cells.extend([''] * (columns - len(cells)))\n        lines.append(' | '.join(cells).rstrip())\n    return chr(10).join(lines)\n\n\nif __name__ == '__main__':\n    print(render_table([['id', 'name'], ['1', 'alice']]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个枚举日期区间的函数，给起止日期且两端都包含，步长接受整数，返回按天递增的 list，起点晚于终点返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom datetime import date, timedelta\nfrom numbers import Integral\n\n\ndef date_range(start: date, end: date, step: Integral = 1) -> list[date]:\n    \"\"\"逐日枚举闭区间，step 为天粒度；起点晚于终点返回空列表。\"\"\"\n    days = int(step)\n    if days <= 0 or start > end:\n        return []\n    days_out: list[date] = []\n    current = start\n    while current <= end:\n        days_out.append(current)\n        current = current + timedelta(days=days)\n    return days_out\n\n\nif __name__ == '__main__':\n    print(date_range(date(2024, 2, 27), date(2024, 2, 29)))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个记忆化装饰器函数，按调用参数缓存结果，要保留原函数签名，同一组参数重复调用不再执行函数体。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Callable\nfrom functools import wraps\nfrom typing import ParamSpec, TypeVar\n\nP = ParamSpec('P')\nR = TypeVar('R')\n\n\ndef memoize(fn: Callable[P, R]) -> Callable[P, R]:\n    \"\"\"按参数缓存结果，同一组参数只真正执行一次。\"\"\"\n    cache: dict[tuple[object, ...], R] = {}\n\n    @wraps(fn)\n    def inner(*args: P.args, **kwargs: P.kwargs) -> R:\n        key = args + tuple(sorted(kwargs.items()))\n        if key not in cache:\n            cache[key] = fn(*args, **kwargs)\n        return cache[key]\n\n    return inner\n\n\nif __name__ == '__main__':\n    calls: list[int] = []\n\n    @memoize\n    def double(value: int) -> int:\n        calls.append(value)\n        return value * 2\n\n    print(double(2), double(2), calls)\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个按种子随机抽样的函数，输入任意可迭代对象都行，返回抽中的列表，k 超过元素个数时返回全部元素。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport random\nfrom collections.abc import Iterable\nfrom numbers import Integral\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef sample_with_seed(items: Iterable[T], k: Integral, seed: Integral) -> list[T]:\n    \"\"\"按固定种子无放回抽样，结果可复现；k 超过元素个数时返回全部。\"\"\"\n    data = list(items)\n    if not data or k <= 0:\n        return []\n    return random.Random(int(seed)).sample(data, min(int(k), len(data)))\n\n\nif __name__ == '__main__':\n    print(sample_with_seed(range(10), 3, 42))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个取首字母缩写的函数，单词接受任意可迭代对象，返回全部大写的 str，跳过空白片段，空输入返回空字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\n\n\ndef initials(words: Iterable[str]) -> str:\n    \"\"\"取每个词的首个字母拼成缩写，全部大写，空输入返回空字符串。\"\"\"\n    out: list[str] = []\n    for word in words:\n        for ch in word:\n            if ch.isalnum():\n                out.append(ch.upper())\n                break\n    return ''.join(out)\n\n\nif __name__ == '__main__':\n    print(initials(['Portable', 'Network', 'Graphics']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个格式化时间戳的函数，秒数接受整数或浮点，时区和格式都可通过参数覆盖，返回 str，非法时间戳返回空字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom datetime import datetime, timezone\nfrom numbers import Real\n\n\ndef format_ts(stamp: Real, fmt: str = '%Y-%m-%d %H:%M:%S', zone: timezone = timezone.utc) -> str:\n    \"\"\"把秒级时间戳格式化成字符串；非法值返回空字符串。\"\"\"\n    try:\n        moment = datetime.fromtimestamp(float(stamp), zone)\n    except (OverflowError, OSError, ValueError):\n        return ''\n    return moment.strftime(fmt)\n\n\nif __name__ == '__main__':\n    print(format_ts(1700000000))\n    print(format_ts(0, '%Y'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个只执行一次的函数装饰器，第一次调用真正执行并保留原函数签名，之后重复调用直接返回首次的结果。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Callable\nfrom functools import wraps\nfrom typing import ParamSpec, TypeVar\n\nP = ParamSpec('P')\nR = TypeVar('R')\n\n\ndef run_once(fn: Callable[P, R]) -> Callable[P, R]:\n    \"\"\"只真正执行第一次调用，后续调用直接返回首次结果。\"\"\"\n    done = False\n    result: R\n\n    @wraps(fn)\n    def inner(*args: P.args, **kwargs: P.kwargs) -> R:\n        nonlocal done, result\n        if not done:\n            result = fn(*args, **kwargs)\n            done = True\n        return result\n\n    return inner\n\n\nif __name__ == '__main__':\n    calls: list[str] = []\n\n    @run_once\n    def banner(name: str) -> str:\n        calls.append(name)\n        return f'hello {name}'\n\n    print(banner('a'), banner('b'), calls)\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个合并多个升序序列的函数，参数接受任意可迭代的数值序列，返回整体升序的列表，一个序列为空也不报错。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport heapq\nfrom collections.abc import Iterable\nfrom numbers import Real\n\n\ndef merge_sorted(*runs: Iterable[Real]) -> list[float]:\n    \"\"\"把多个升序序列合并成一个升序列表，某个序列为空也不报错。\"\"\"\n    streams = [[float(value) for value in run] for run in runs]\n    return list(heapq.merge(*streams))\n\n\nif __name__ == '__main__':\n    print(merge_sorted([1, 4], [2, 3]), merge_sorted())\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个遮罩邮箱的函数，文本是普通字符串，只保留用户名前几位，保留位数可传整数，返回 str，没有邮箱时原样返回。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport re\nfrom numbers import Integral\n\nMAIL = re.compile('([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+[.][A-Za-z]{2,})')\n\n\ndef mask_emails(text: str, keep: Integral = 1) -> str:\n    \"\"\"遮罩文本里的邮箱用户名，只保留前 keep 个字符，域名保持不变。\"\"\"\n    width = max(int(keep), 0)\n\n    def replace(match: re.Match[str]) -> str:\n        local, domain = match.groups()\n        return local[:width] + '***@' + domain\n\n    return MAIL.sub(replace, text)\n\n\nif __name__ == '__main__':\n    print(mask_emails('mail bob@example.com now'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个把时间戳向下取整的函数，按指定秒数粒度对齐，粒度接受整数，返回 int，粒度小于等于 0 时抛 ValueError。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Integral, Real\n\n\ndef floor_ts(stamp: Real, step: Integral) -> int:\n    \"\"\"把时间戳向下取整到 step 秒的整数倍。\"\"\"\n    size = int(step)\n    if size <= 0:\n        raise ValueError('step 必须是正整数')\n    return int(float(stamp) // size) * size\n\n\nif __name__ == '__main__':\n    print(floor_ts(1700000005.7, 60))\n    print(floor_ts(-0.5, 60))\n    try:\n        floor_ts(1.0, 0)\n    except ValueError as err:\n        print(err)\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个校验正数的函数，值接受任意实数，默认必须严格大于 0，可选参数放行 0，不合法时抛 ValueError。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Real\n\n\ndef require_positive(value: Real, name: str = 'value', allow_zero: bool = False) -> float:\n    \"\"\"把值转成 float 并校验为正数，不合法时抛 ValueError。\"\"\"\n    number = float(value)\n    if number < 0 or (number == 0 and not allow_zero):\n        raise ValueError(f'{name} must be positive, got {number}')\n    return number\n\n\nif __name__ == '__main__':\n    print(require_positive(3))\n    print(require_positive(0, allow_zero=True))\n    try:\n        require_positive(0, 'count')\n    except ValueError as err:\n        print(err)\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个找出重复元素的函数，参数接受任意可迭代对象，返回重复项列表，没有重复时返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Hashable, Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T', bound=Hashable)\n\n\ndef find_duplicates(items: Iterable[T]) -> list[T]:\n    \"\"\"找出重复出现的元素，以第二次出现的先后排序。\"\"\"\n    seen: set[T] = set()\n    reported: set[T] = set()\n    out: list[T] = []\n    for item in items:\n        if item in seen and item not in reported:\n            reported.add(item)\n            out.append(item)\n        seen.add(item)\n    return out\n\n\nif __name__ == '__main__':\n    print(find_duplicates('abacbd'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个归一化空白的函数，文本以多段字符串的可迭代对象传入，返回 str，连续空白压成一个空格，全空白返回空字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\n\n\ndef squeeze_ws(parts: Iterable[str]) -> str:\n    \"\"\"把多段文本里的连续空白压成单个空格，并去掉首尾空白。\"\"\"\n    return ' '.join(' '.join(parts).split())\n\n\ndef squeeze_lines(lines: Iterable[str]) -> list[str]:\n    \"\"\"逐行归一化空白，空行压成空字符串后保留占位。\"\"\"\n    return [' '.join(line.split()) for line in lines]\n\n\nif __name__ == '__main__':\n    print(squeeze_ws([' a  b', '  c   d ']))\n    print(squeeze_lines([' a  b', '   ', 'c d']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个批量计算年龄的函数，出生日期放在任意序列里，参考日期默认今天，返回等长整数列表，未来日期算 0 岁。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Sequence\nfrom datetime import date\n\n\ndef ages(born: Sequence[date], today: date | None = None) -> list[int]:\n    \"\"\"按年份计算年龄，未来出生日期记为 0 岁。\"\"\"\n    ref = date.today() if today is None else today\n    result: list[int] = []\n    for day in born:\n        if day > ref:\n            result.append(0)\n            continue\n        years = ref.year - day.year\n        if (ref.month, ref.day) < (day.month, day.day):\n            years -= 1\n        result.append(years)\n    return result\n\n\nif __name__ == '__main__':\n    print(ages([date(2000, 1, 1)]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个批量校验标识符的函数，名字集合能接受任意可迭代对象，返回所有不合法的名字列表，空输入返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport keyword\nfrom collections.abc import Iterable\n\n\ndef invalid_identifiers(names: Iterable[str]) -> list[str]:\n    \"\"\"返回不是合法 Python 标识符的名字，保持原顺序。\"\"\"\n    bad: list[str] = []\n    for name in names:\n        if not name.isidentifier() or keyword.iskeyword(name):\n            bad.append(name)\n    return bad\n\n\nif __name__ == '__main__':\n    print(invalid_identifiers(['ok', 'class', '1bad']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个游程编码的函数，输入可以是任何可迭代对象，返回（元素, 次数）元组列表，空输入返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom itertools import groupby\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef run_lengths(items: Iterable[T]) -> list[tuple[T, int]]:\n    \"\"\"把连续相同的元素压缩成（元素, 次数）列表，空输入返回空列表。\"\"\"\n    return [(value, sum(1 for _ in group)) for value, group in groupby(items)]\n\n\nif __name__ == '__main__':\n    print(run_lengths('aaabbc'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个计算编辑距离的函数，两段文本都按字符序列传入，返回 int，两段都为空时返回 0，不要修改入参。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Sequence\n\n\ndef edit_distance(left: Sequence[str], right: Sequence[str]) -> int:\n    \"\"\"计算两段字符序列的编辑距离，空序列返回另一段的长度。\"\"\"\n    prev = list(range(len(right) + 1))\n    for i, a in enumerate(left, 1):\n        cur = [i]\n        for j, b in enumerate(right, 1):\n            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a != b)))\n        prev = cur\n    return prev[-1]\n\n\nif __name__ == '__main__':\n    print(edit_distance('kitten', 'sitting'))\n    print(edit_distance('', 'abc'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个判断缓存是否过期的函数，传入写入时间和存活秒数，存活秒数接受整数或浮点，返回 bool，小于等于 0 视为永不过期。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport time\nfrom numbers import Real\n\n\ndef is_expired(stamp: Real, ttl: Real, now: Real | None = None) -> bool:\n    \"\"\"判断 stamp 是否超过 ttl 秒；ttl <= 0 表示永不过期。\"\"\"\n    life = float(ttl)\n    if life <= 0:\n        return False\n    current = time.time() if now is None else float(now)\n    return current - float(stamp) > life\n\n\nif __name__ == '__main__':\n    print(is_expired(0, 0))\n    print(is_expired(1000, 60, now=1030))\n    print(is_expired(1000, 60, now=1100))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个校验必填字段的函数，配置用任意映射传入，返回排序后的缺失字段列表，全都存在时返回空列表且不改配置。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable, Mapping\n\n\ndef missing_fields(data: Mapping[str, object], required: Iterable[str]) -> list[str]:\n    \"\"\"返回 data 里缺失的必填字段，按字段名排序且不重复。\"\"\"\n    return sorted({name for name in required if name not in data})\n\n\nif __name__ == '__main__':\n    print(missing_fields({'a': 1}, ['a', 'b', 'c', 'b']))\n    print(missing_fields({'a': 1, 'b': 2}, ['a', 'b']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个固定窗口求和的函数，参数任意可迭代数值都行，返回每窗之和的列表，窗口大于数据长度时返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom numbers import Integral, Real\n\n\ndef window_sums(values: Iterable[Real], size: Integral) -> list[float]:\n    \"\"\"计算每个固定窗口的元素和，窗口大于数据长度时返回空列表。\"\"\"\n    data = [float(value) for value in values]\n    width = int(size)\n    if width <= 0 or width > len(data):\n        return []\n    return [sum(data[start:start + width]) for start in range(len(data) - width + 1)]\n\n\nif __name__ == '__main__':\n    print(window_sums([1, 2, 3, 4], 2))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个检查括号配对的函数，字符以任意可迭代对象传入，括号映射可自定义，返回 bool，右括号多余时返回 False。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable, Mapping\n\nCLOSERS = {')': '(', ']': '[', '}': '{'}\n\n\ndef brackets_balanced(chars: Iterable[str], pairs: Mapping[str, str] = CLOSERS) -> bool:\n    \"\"\"检查括号是否配对，遇到多余或错配的右括号立即返回 False。\"\"\"\n    closers = dict(pairs)\n    openers = set(closers.values())\n    stack: list[str] = []\n    for ch in chars:\n        if ch in openers:\n            stack.append(ch)\n        elif ch in closers:\n            if not stack or stack.pop() != closers[ch]:\n                return False\n    return not stack\n\n\nif __name__ == '__main__':\n    print(brackets_balanced('(a[b]{c})'))\n    print(brackets_balanced('(]'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个解析时长字符串的函数，支持 1h30m 这种写法，单位表可通过映射覆盖，无法解析返回 0，返回总秒数的 int。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport re\nfrom collections.abc import Mapping\nfrom numbers import Integral\n\nUNITS: dict[str, int] = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}\nTOKEN = re.compile('([0-9]+(?:[.][0-9]+)?)([a-z]+)')\n\n\ndef parse_duration(text: str, units: Mapping[str, Integral] | None = None) -> int:\n    \"\"\"解析 1h30m 这类时长写法，无法解析返回 0 秒。\"\"\"\n    table = UNITS if units is None else units\n    pairs = TOKEN.findall(text.lower().replace(' ', ''))\n    if not pairs:\n        return 0\n    total = 0.0\n    for amount, unit in pairs:\n        if unit not in table:\n            return 0\n        total += float(amount) * float(table[unit])\n    return int(total)\n\n\nif __name__ == '__main__':\n    print(parse_duration('1h30m'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个宽松转整数的函数，输入可以是任意实数或字符串，无法解析时返回默认值而不是抛异常。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Real\n\n\ndef to_int(value: Real | str, default: int = 0) -> int:\n    \"\"\"尽量把输入转成 int，解析失败时返回 default。\"\"\"\n    if isinstance(value, bool):\n        return int(value)\n    try:\n        return int(float(value))\n    except (TypeError, ValueError):\n        return default\n\n\nif __name__ == '__main__':\n    print(to_int('12'), to_int('1.9'), to_int('abc'), to_int(True))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个矩阵转置的函数，参数接受二维可迭代对象，返回元组组成的列表，行长度不齐时按最短的行截断。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable, Sequence\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef transpose(rows: Iterable[Iterable[T]]) -> list[tuple[T, ...]]:\n    \"\"\"转置二维结构，行长度不齐时按最短的行截断，空输入返回空列表。\"\"\"\n    data: Sequence[Sequence[T]] = [tuple(row) for row in rows]\n    return [tuple(column) for column in zip(*data)]\n\n\nif __name__ == '__main__':\n    print(transpose([[1, 2, 3], [4, 5, 6]]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个把字段拼成 CSV 行的函数，字段接受任意可迭代对象，含逗号或引号的字段要加双引号，返回 str，空输入返回空字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\n\n\ndef csv_row(fields: Iterable[str]) -> str:\n    \"\"\"把字段拼成一行 CSV，含逗号、引号或换行的字段用双引号包起来。\"\"\"\n    cells: list[str] = []\n    for field in fields:\n        text = str(field)\n        if any(mark in text for mark in (',', '\"', chr(10), chr(13))):\n            text = '\"' + text.replace('\"', '\"\"') + '\"'\n        cells.append(text)\n    return ','.join(cells)\n\n\nif __name__ == '__main__':\n    print(csv_row(['a', 'b,c', 'say \"hi\"']))\n    print(csv_row([]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个判断工作日的函数，日期接受 date 或 datetime，周末直接返回 False，节假日可通过可迭代参数追加，返回 bool。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom datetime import date\n\n\ndef is_workday(day: date, holidays: Iterable[date] = (), extra: Iterable[date] = ()) -> bool:\n    \"\"\"周一到周五且不在节假日里才算工作日；extra 里的调休日按工作日算。\"\"\"\n    if day in set(extra):\n        return True\n    if day.weekday() >= 5:\n        return False\n    return day not in set(holidays)\n\n\nif __name__ == '__main__':\n    print(is_workday(date(2024, 5, 1)))\n    print(is_workday(date(2024, 5, 4), extra=[date(2024, 5, 4)]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个拼查询串的函数，基础 URL 是字符串，参数用任意映射传入，返回完整 URL，值为 None 的键跳过。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Mapping\nfrom urllib.parse import urlencode\n\n\ndef build_url(base: str, params: Mapping[str, object]) -> str:\n    \"\"\"把参数拼到 base 的查询串里，值为 None 的键直接跳过。\"\"\"\n    clean = {key: value for key, value in params.items() if value is not None}\n    if not clean:\n        return base\n    separator = '&' if '?' in base else '?'\n    return f'{base}{separator}{urlencode(clean)}'\n\n\nif __name__ == '__main__':\n    print(build_url('https://example.com/s', {'q': 'a b', 'n': None}))\n    print(build_url('https://example.com/s?x=1', {'y': 2}))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个笛卡尔积的函数，两个参数都接受任意可迭代对象，返回元组列表，任一边为空返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T')\nU = TypeVar('U')\n\n\ndef cartesian(left: Iterable[T], right: Iterable[U]) -> list[tuple[T, U]]:\n    \"\"\"计算两个可迭代对象的笛卡尔积，任意一边为空返回空列表。\"\"\"\n    lhs = list(left)\n    rhs = list(right)\n    if not lhs or not rhs:\n        return []\n    return [(a, b) for a in lhs for b in rhs]\n\n\nif __name__ == '__main__':\n    print(cartesian('ab', [1, 2]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个自然语言拼接列表的函数，词条接受任意可迭代对象，返回 str，只有一项时不加连词，空输入返回空字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\n\n\ndef human_join(items: Iterable[str], conj: str = '和') -> str:\n    \"\"\"把词条拼成自然语言列表，只有一项时不加连词，空输入返回空字符串。\"\"\"\n    words = [str(item) for item in items if str(item)]\n    if not words:\n        return ''\n    if len(words) == 1:\n        return words[0]\n    return '、'.join(words[:-1]) + conj + words[-1]\n\n\nif __name__ == '__main__':\n    print(human_join(['apple', 'banana', 'pear']))\n    print(human_join([]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个算月份首尾的函数，年月都接受整数，返回该月第一天和最后一天组成的元组，二月按闰年算，月份越界抛 ValueError。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport calendar\nfrom datetime import date\nfrom numbers import Integral\n\n\ndef month_bounds(year: Integral, month: Integral) -> tuple[date, date]:\n    \"\"\"返回该月第一天与最后一天。\"\"\"\n    y, m = int(year), int(month)\n    if not 1 <= m <= 12:\n        raise ValueError('月份越界: ' + str(m))\n    first = date(y, m, 1)\n    last = date(y, m, calendar.monthrange(y, m)[1])\n    return first, last\n\n\nif __name__ == '__main__':\n    print(month_bounds(2024, 2))\n    try:\n        month_bounds(2024, 13)\n    except ValueError as err:\n        print(err)\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个解析查询串的函数，入参可以带问号也可以不带，重复键保留全部值并返回 dict，缺失的键用默认映射补齐。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Mapping\nfrom urllib.parse import parse_qs\n\n\ndef parse_query(query: str, defaults: Mapping[str, list[str]] | None = None) -> dict[str, list[str]]:\n    \"\"\"解析查询串，重复键保留全部值，缺失键用 defaults 补默认值。\"\"\"\n    text = query.split('?', 1)[-1]\n    result = {key: list(values) for key, values in (defaults or {}).items()}\n    for key, values in parse_qs(text).items():\n        result.setdefault(key, []).extend(values)\n    return result\n\n\nif __name__ == '__main__':\n    print(parse_query('a=1&a=2&b=3'))\n    print(parse_query('?c=4', {'c': ['0'], 'd': ['9']}))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个算分位数的函数，参数任意可迭代数值都行，返回 float，空输入返回 0.0，q 超出范围时按边界截断。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom math import floor\nfrom numbers import Real\n\n\ndef quantile(values: Iterable[Real], q: Real) -> float:\n    \"\"\"用线性插值求分位数，空输入返回 0.0，q 超出范围按边界截断。\"\"\"\n    data = sorted(float(value) for value in values)\n    if not data:\n        return 0.0\n    ratio = min(max(float(q), 0.0), 1.0)\n    position = ratio * (len(data) - 1)\n    low = floor(position)\n    high = min(low + 1, len(data) - 1)\n    weight = position - low\n    return data[low] * (1.0 - weight) + data[high] * weight\n\n\nif __name__ == '__main__':\n    print(quantile([1, 2, 3, 4], 0.5))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个整数转罗马数字的函数，数字是整数类型，范围 1 到 3999，返回 str，越界时抛 ValueError。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Integral\n\nPAIRS = (\n    (1000, 'M'), (900, 'CM'), (500, 'D'), (400, 'CD'),\n    (100, 'C'), (90, 'XC'), (50, 'L'), (40, 'XL'),\n    (10, 'X'), (9, 'IX'), (5, 'V'), (4, 'IV'), (1, 'I'),\n)\n\n\ndef to_roman(number: Integral) -> str:\n    \"\"\"把 1 到 3999 的整数转成罗马数字，越界抛 ValueError。\"\"\"\n    left = int(number)\n    if not 0 < left < 4000:\n        raise ValueError('number out of range')\n    out: list[str] = []\n    for value, symbol in PAIRS:\n        while left >= value:\n            out.append(symbol)\n            left -= value\n    return ''.join(out)\n\n\nif __name__ == '__main__':\n    print(to_roman(1994))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个把 CSV 读成字典列表的函数，路径接受 str 或 Path，第一行当表头，编码可指定，文件不存在返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport csv\nimport tempfile\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef read_csv(path: str | PathLike[str], encoding: str = 'utf-8') -> list[dict[str, str]]:\n    \"\"\"按表头把每行读成字典；文件不存在返回空列表。\"\"\"\n    target = Path(path)\n    if not target.is_file():\n        return []\n    with target.open(newline='', encoding=encoding) as fh:\n        return [dict(row) for row in csv.DictReader(fh)]\n\n\nif __name__ == '__main__':\n    with tempfile.TemporaryDirectory() as td:\n        sample = Path(td) / 'a.csv'\n        with sample.open('w', newline='', encoding='utf-8') as fh:\n            writer = csv.writer(fh)\n            writer.writerow(['a', 'b'])\n            writer.writerow(['1', '2'])\n        print(read_csv(sample))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个解析尺寸字符串的函数，形如 800x600 且允许中间有空格，格式不对时返回 (0, 0) 元组而不是抛异常。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport re\nfrom collections.abc import Iterable\n\nPATTERN = re.compile('[0-9]+ *x *[0-9]+')\n\n\ndef parse_size(text: str) -> tuple[int, int]:\n    \"\"\"解析 800x600 形式的尺寸，格式非法时返回 (0, 0)。\"\"\"\n    match = PATTERN.fullmatch(text.strip().lower())\n    if match is None:\n        return (0, 0)\n    width, height = match.group(0).replace(' ', '').split('x')\n    return (int(width), int(height))\n\n\ndef parse_all(items: Iterable[str]) -> list[tuple[int, int]]:\n    \"\"\"批量解析尺寸，保持输入顺序。\"\"\"\n    return [parse_size(item) for item in items]\n\n\nif __name__ == '__main__':\n    print(parse_size(' 800 x 600 '))\n    print(parse_all(['10x20', 'bad']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个定种子打乱副本的函数，输入可以是列表或生成器，返回新列表，同样种子每次结果都一样。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport random\nfrom collections.abc import Iterable\nfrom numbers import Integral\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef shuffle_copy(items: Iterable[T], seed: Integral) -> list[T]:\n    \"\"\"返回打乱后的新列表，不改动入参，相同种子结果可复现。\"\"\"\n    out = list(items)\n    random.Random(int(seed)).shuffle(out)\n    return out\n\n\nif __name__ == '__main__':\n    print(shuffle_copy(range(5), 7))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个解析 key=value 行的函数，行接受任意可迭代对象，跳过空行和注释，返回 dict，重复键以后出现的为准。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\n\n\ndef parse_kv_lines(lines: Iterable[str]) -> dict[str, str]:\n    \"\"\"解析 key=value 行，跳过空行和注释，重复键以后出现的为准。\"\"\"\n    out: dict[str, str] = {}\n    for line in lines:\n        text = line.strip()\n        if not text or text.startswith('#'):\n            continue\n        key, sep, value = text.partition('=')\n        if sep and key.strip():\n            out[key.strip()] = value.strip()\n    return out\n\n\nif __name__ == '__main__':\n    print(parse_kv_lines(['a=1', '# skip', 'b = 2', 'a=3']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个写 CSV 的函数，行是任意映射的可迭代对象，表头取首行的键顺序，路径接受 str 或 Path，空输入写空文件返回 0。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport csv\nimport tempfile\nfrom collections.abc import Iterable, Mapping\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef write_csv(path: str | PathLike[str], rows: Iterable[Mapping[str, object]]) -> int:\n    \"\"\"把映射序列写成 CSV，表头取首个映射的键顺序，返回数据行数。\"\"\"\n    target = Path(path)\n    target.parent.mkdir(parents=True, exist_ok=True)\n    data = [dict(row) for row in rows]\n    if not data:\n        target.write_text('', encoding='utf-8')\n        return 0\n    with target.open('w', newline='', encoding='utf-8') as fh:\n        writer = csv.DictWriter(fh, fieldnames=list(data[0]))\n        writer.writeheader()\n        writer.writerows(data)\n    return len(data)\n\n\nif __name__ == '__main__':\n    with tempfile.TemporaryDirectory() as td:\n        print(write_csv(Path(td) / 'a.csv', [{'a': 1}, {'a': 2}]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个按需计算并缓存的函数，工厂函数用任意映射传入，第一次取值时计算并缓存，未知的键取用时抛 KeyError。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Callable, Mapping\n\n\nclass LazyCache:\n    \"\"\"按需执行工厂函数并缓存结果的取值器。\"\"\"\n\n    def __init__(self, factories: Mapping[str, Callable[[], object]]) -> None:\n        self._factories = factories\n        self._cache: dict[str, object] = {}\n\n    def get(self, key: str) -> object:\n        if key not in self._factories:\n            raise KeyError(key)\n        if key not in self._cache:\n            self._cache[key] = self._factories[key]()\n        return self._cache[key]\n\n\ndef lazy_cache(factories: Mapping[str, Callable[[], object]]) -> LazyCache:\n    \"\"\"把工厂映射包成按需计算的缓存对象。\"\"\"\n    return LazyCache(factories)\n\n\nif __name__ == '__main__':\n    calls: list[str] = []\n    cache = lazy_cache({'a': lambda: calls.append('a') or 1})\n    print(cache.get('a'), cache.get('a'), calls)\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个求众数的函数，参数接受任意可迭代的可哈希元素，返回出现最多的元素，空输入返回 None。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections import Counter\nfrom collections.abc import Hashable, Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T', bound=Hashable)\n\n\ndef most_common(items: Iterable[T]) -> T | None:\n    \"\"\"返回出现次数最多的元素，并列时取最先出现的，空输入返回 None。\"\"\"\n    counts = Counter(items)\n    if not counts:\n        return None\n    best = max(counts.values())\n    for item in counts:\n        if counts[item] == best:\n            return item\n    return None\n\n\nif __name__ == '__main__':\n    print(most_common('abbc'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个归一化换行符的函数，文本以可迭代的片段传入，CRLF 和 CR 都统一成 LF，返回 list，空输入返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\n\nCR = chr(13)\nLF = chr(10)\n\n\ndef split_lines(chunks: Iterable[str]) -> list[str]:\n    \"\"\"把多段文本的 CRLF 和 CR 换行统一成 LF 后拆成行，空输入返回空列表。\"\"\"\n    text = ''.join(chunks).replace(CR + LF, LF).replace(CR, LF)\n    return text.splitlines()\n\n\nif __name__ == '__main__':\n    print(split_lines(['a', CR + LF, 'b', CR, 'c']))\n    print(split_lines([]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个合并两层配置的函数，两个参数都是映射，覆盖值优先并递归合并嵌套映射，返回新的 dict，不要修改入参。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Mapping\n\n\ndef merge(defaults: Mapping[str, object], override: Mapping[str, object]) -> dict[str, object]:\n    \"\"\"递归合并两层配置，override 优先；返回新对象，不修改入参。\"\"\"\n    result: dict[str, object] = dict(defaults)\n    for key, value in override.items():\n        old = result.get(key)\n        if isinstance(old, Mapping) and isinstance(value, Mapping):\n            result[key] = merge(old, value)\n        else:\n            result[key] = value\n    return result\n\n\nif __name__ == '__main__':\n    print(merge({'a': {'b': 1}}, {'a': {'c': 2}}))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个生成随机 ID 的函数，长度用整数传入，返回小写字母和数字组成的字符串，长度小于等于 0 时抛 ValueError。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport secrets\nimport string\nfrom numbers import Integral\n\nALPHABET = string.ascii_lowercase + string.digits\n\n\ndef random_id(length: Integral = 12) -> str:\n    \"\"\"生成长度为 length 的小写字母数字 ID，长度非正时抛 ValueError。\"\"\"\n    count = int(length)\n    if count <= 0:\n        raise ValueError('length must be positive')\n    return ''.join(secrets.choice(ALPHABET) for _ in range(count))\n\n\nif __name__ == '__main__':\n    print(random_id(8))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个求相邻元素差分的函数，参数任意可迭代的数值都行，返回 float 列表，元素少于两个时返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom numbers import Real\n\n\ndef successive_diffs(values: Iterable[Real]) -> list[float]:\n    \"\"\"返回相邻元素的差分列表，元素少于两个时返回空列表。\"\"\"\n    data = [float(value) for value in values]\n    return [data[index + 1] - data[index] for index in range(len(data) - 1)]\n\n\nif __name__ == '__main__':\n    print(successive_diffs([3, 5, 4]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个重排缩进的函数，行接受任意可迭代对象，缩进步长可传整数，返回 list，空行保持为空字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom numbers import Integral\n\nSPACE = ' '\n\n\ndef reindent(lines: Iterable[str], step: Integral = 4) -> list[str]:\n    \"\"\"把每行的前导空格按统一步长重新缩进，空行保持为空字符串。\"\"\"\n    width = max(int(step), 1)\n    out: list[str] = []\n    for line in lines:\n        text = line.lstrip(SPACE)\n        if not text:\n            out.append('')\n            continue\n        level = (len(line) - len(text)) // width\n        out.append(SPACE * (level * width) + text)\n    return out\n\n\nif __name__ == '__main__':\n    print(reindent(['  a', '      b']))\n    print(reindent(['', ' x']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个把环境变量读成整数的函数，变量不存在或不是数字时返回默认值，默认值也接受整数，源映射可以自己传。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport os\nfrom collections.abc import Mapping\nfrom numbers import Integral\n\n\ndef env_int(name: str, default: Integral = 0, env: Mapping[str, str] | None = None) -> int:\n    \"\"\"读取整数型环境变量；缺失或非法时返回 default。\"\"\"\n    source = os.environ if env is None else env\n    raw = source.get(name)\n    if raw is None:\n        return int(default)\n    try:\n        return int(raw.strip())\n    except ValueError:\n        return int(default)\n\n\nif __name__ == '__main__':\n    print(env_int('no_such_var', 7))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个计算稳定缓存键的函数，参数用任意映射传入，返回十六进制字符串，键顺序不同结果一致，空映射也不报错。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport hashlib\nimport json\nfrom collections.abc import Mapping\n\n\ndef cache_key(params: Mapping[str, object]) -> str:\n    \"\"\"按键名排序后计算 sha256，取前 16 位十六进制。\"\"\"\n    payload = json.dumps(dict(params), sort_keys=True, ensure_ascii=False, default=str)\n    return hashlib.sha256(payload.encode('utf-8')).hexdigest()[:16]\n\n\nif __name__ == '__main__':\n    print(cache_key({'b': 2, 'a': 1}))\n    print(cache_key({'a': 1, 'b': 2}))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个算前缀和的函数，输入任意可迭代数值都能处理，返回与输入等长的列表，空输入返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom numbers import Real\n\n\ndef prefix_sums(values: Iterable[Real]) -> list[float]:\n    \"\"\"返回前缀和列表，长度与输入一致，空输入返回空列表。\"\"\"\n    out: list[float] = []\n    acc = 0.0\n    for value in values:\n        acc += float(value)\n        out.append(acc)\n    return out\n\n\nif __name__ == '__main__':\n    print(prefix_sums([1, 2, 3]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个拼接 shell 命令行的函数，参数接受任意可迭代对象，含空格或特殊字符的自动加引号，返回 str，空输入返回空字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport shlex\nfrom collections.abc import Iterable\n\n\ndef quote_arg(arg: str) -> str:\n    \"\"\"转义单个参数，空字符串也会得到一对引号。\"\"\"\n    return shlex.quote(str(arg))\n\n\ndef shell_join(args: Iterable[str]) -> str:\n    \"\"\"把参数序列拼成可直接粘贴到 shell 的命令行，必要时自动加引号。\"\"\"\n    return ' '.join(quote_arg(arg) for arg in args)\n\n\nif __name__ == '__main__':\n    print(shell_join(['ls', '-l', 'my file.txt']))\n    print(shell_join([]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个给路径去重的函数，输入任意可迭代的 str 或 Path，重复的解析成绝对路径后算同一个，返回 list，保持首次出现顺序。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef unique_paths(paths: Iterable[str | PathLike[str]]) -> list[Path]:\n    \"\"\"按解析后的绝对路径去重，保留首次出现的顺序。\"\"\"\n    seen: set[Path] = set()\n    result: list[Path] = []\n    for raw in paths:\n        item = Path(raw).expanduser().resolve()\n        if item not in seen:\n            seen.add(item)\n            result.append(item)\n    return result\n\n\nif __name__ == '__main__':\n    print(unique_paths(['a/./b', 'a/b', 'c']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个计数器自增的函数，计数映射用任意可变映射传入，返回自增后的新值，键不存在时按 0 开始计数。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import MutableMapping\n\n\ndef bump(counter: MutableMapping[str, int], key: str, step: int = 1) -> int:\n    \"\"\"把 counter[key] 增加 step 并返回新值，键不存在时从 0 开始。\"\"\"\n    value = counter.get(key, 0) + step\n    counter[key] = value\n    return value\n\n\nif __name__ == '__main__':\n    counts: dict[str, int] = {}\n    print(bump(counts, 'a'), bump(counts, 'a', 2))\n    print(counts)\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个相邻元素两两配对的函数，参数接受任意可迭代对象，返回元组列表，不足两个元素时返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef adjacent_pairs(items: Iterable[T]) -> list[tuple[T, T]]:\n    \"\"\"把相邻元素两两配对，不足两个元素时返回空列表。\"\"\"\n    data = list(items)\n    return [(data[index], data[index + 1]) for index in range(len(data) - 1)]\n\n\nif __name__ == '__main__':\n    print(adjacent_pairs('abcd'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个左侧补零的函数，数字是整数，位宽也接受整数，返回 str，已够宽时原样返回，负数只补数字部分。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Integral\n\n\ndef zero_pad(number: Integral, width: Integral) -> str:\n    \"\"\"把整数左侧补零到指定位宽，已够宽原样返回，负数保留符号。\"\"\"\n    text = str(int(number))\n    sign = '-' if text.startswith('-') else ''\n    digits = text[len(sign):]\n    return sign + digits.rjust(max(int(width) - len(sign), 0), '0')\n\n\nif __name__ == '__main__':\n    print(zero_pad(42, 5))\n    print(zero_pad(-7, 4))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个按块读取文件的函数，路径接受 str 或 Path，块大小按字节可调，惰性地产出 bytes，文件不存在时抛 FileNotFoundError。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport tempfile\nfrom collections.abc import Iterator\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef iter_chunks(path: str | PathLike[str], size: int = 65536) -> Iterator[bytes]:  # 惰性\n    \"\"\"按字节块惰性读取文件内容。\"\"\"\n    with Path(path).open('rb') as fh:\n        while chunk := fh.read(size):\n            yield chunk\n\n\nif __name__ == '__main__':\n    with tempfile.TemporaryDirectory() as td:\n        sample = Path(td) / 'a.bin'\n        sample.write_bytes(b'0123456789')\n        print(len(list(iter_chunks(sample, 4))))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个按 key 分组计数的函数，元素能接受任意可迭代对象，返回 key 到个数的普通 dict，空输入返回空 dict。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Callable, Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T')\nK = TypeVar('K')\n\n\ndef count_by(items: Iterable[T], key: Callable[[T], K]) -> dict[K, int]:\n    \"\"\"按 key 函数分组计数，空输入返回空 dict。\"\"\"\n    counts: dict[K, int] = {}\n    for item in items:\n        bucket = key(item)\n        counts[bucket] = counts.get(bucket, 0) + 1\n    return counts\n\n\nif __name__ == '__main__':\n    print(count_by(['aa', 'b', 'cc'], len))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个过滤 None 的函数，参数接受任意可迭代对象，返回不含 None 的新列表，全是 None 时返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef compact(items: Iterable[T | None]) -> list[T]:\n    \"\"\"去掉序列里的 None 值，返回新列表，全是 None 时返回空列表。\"\"\"\n    return [item for item in items if item is not None]\n\n\nif __name__ == '__main__':\n    print(compact([1, None, 2]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个按数量变单复数的函数，单词是字符串、数量是整数，不规则变化用映射覆盖，返回 str，数量为 1 返回单数。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Mapping\nfrom numbers import Integral\n\nIRREGULAR = {'child': 'children', 'person': 'people', 'man': 'men'}\n\n\ndef pluralize(word: str, count: Integral, irregular: Mapping[str, str] = IRREGULAR) -> str:\n    \"\"\"按数量返回单数或复数形式，不规则变化可以由映射覆盖。\"\"\"\n    if int(count) == 1:\n        return word\n    table = dict(irregular)\n    if word in table:\n        return table[word]\n    if word.endswith('y') and word[-2:-1] not in 'aeiou':\n        return word[:-1] + 'ies'\n    if word.endswith(('s', 'x', 'z', 'ch', 'sh')):\n        return word + 'es'\n    return word + 's'\n\n\nif __name__ == '__main__':\n    print(pluralize('child', 3))\n    print(pluralize('box', 2))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个算文件 sha256 的函数，路径接受 str 或 Path，按块读取不要一次读进内存，返回小写十六进制字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport hashlib\nimport tempfile\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef sha256_file(path: str | PathLike[str], size: int = 65536) -> str:\n    \"\"\"按块计算文件的 sha256，返回十六进制摘要字符串。\"\"\"\n    digest = hashlib.sha256()\n    with Path(path).open('rb') as fh:\n        for chunk in iter(lambda: fh.read(size), b''):\n            digest.update(chunk)\n    return digest.hexdigest()\n\n\nif __name__ == '__main__':\n    with tempfile.TemporaryDirectory() as td:\n        sample = Path(td) / 'a.bin'\n        sample.write_bytes(b'abc')\n        print(sha256_file(sample))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个合并两个序列的函数，两边都能接受任意可迭代对象，去重后保持先左后右的顺序，空输入返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom itertools import chain\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef merge_unique(left: Iterable[T], right: Iterable[T]) -> list[T]:\n    \"\"\"先左后右合并去重，保持首次出现的顺序。\"\"\"\n    seen: set[T] = set()\n    merged: list[T] = []\n    for item in chain(left, right):\n        if item not in seen:\n            seen.add(item)\n            merged.append(item)\n    return merged\n\n\nif __name__ == '__main__':\n    print(merge_unique([1, 2, 3], [3, 4]))\n    print(merge_unique([], []))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个保序求并集的函数，参数可以传任意多个可迭代对象，返回去重后的列表，重复元素以先出现的为准，一个都不传时返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Hashable, Iterable\nfrom itertools import chain\nfrom typing import TypeVar\n\nT = TypeVar('T', bound=Hashable)\n\n\ndef union_ordered(*sources: Iterable[T]) -> list[T]:\n    \"\"\"按传入先后顺序合并任意多个可迭代对象并去重。\"\"\"\n    seen: set[T] = set()\n    out: list[T] = []\n    for item in chain.from_iterable(sources):\n        if item not in seen:\n            seen.add(item)\n            out.append(item)\n    return out\n\n\nif __name__ == '__main__':\n    print(union_ordered('abc', 'bcd', 'xyz'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个从文本里提取邮箱的函数，文本接受任意可迭代对象，返回 list，按首次出现顺序去重，没有邮箱返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport re\nfrom collections.abc import Iterable\n\nMAIL = re.compile('[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}')\n\n\ndef find_emails(chunks: Iterable[str]) -> list[str]:\n    \"\"\"从多段文本里提取邮箱地址，按首次出现的顺序去重后返回列表。\"\"\"\n    seen: set[str] = set()\n    out: list[str] = []\n    for text in chunks:\n        for match in MAIL.findall(text):\n            if match not in seen:\n                seen.add(match)\n                out.append(match)\n    return out\n\n\nif __name__ == '__main__':\n    print(find_emails(['a@b.com and c@d.org', 'a@b.com']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个列出压缩包成员的函数，路径接受 str 或 Path，只支持 zip，返回排好序的成员名 list，文件损坏时返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport tempfile\nimport zipfile\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef list_members(path: str | PathLike[str]) -> list[str]:\n    \"\"\"列出 zip 内的成员名并排序；不是 zip 或文件损坏时返回空列表。\"\"\"\n    target = Path(path)\n    if not zipfile.is_zipfile(target):\n        return []\n    try:\n        with zipfile.ZipFile(target) as archive:\n            return sorted(archive.namelist())\n    except (OSError, zipfile.BadZipFile):\n        return []\n\n\nif __name__ == '__main__':\n    with tempfile.TemporaryDirectory() as td:\n        sample = Path(td) / 'a.zip'\n        with zipfile.ZipFile(sample, 'w') as archive:\n            archive.writestr('b.txt', 'x')\n            archive.writestr('a.txt', 'y')\n        print(list_members(sample))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我想要一个按点号路径取值的函数，字典可以是任意映射，路径不存在时返回默认值而不是抛 KeyError。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Mapping\n\n\ndef get_path(data: Mapping[str, object], path: str, default: object = None) -> object:\n    \"\"\"按 a.b.c 的点号路径取值，任一层缺失时返回 default。\"\"\"\n    current: object = data\n    for part in path.split('.'):\n        if not isinstance(current, Mapping) or part not in current:\n            return default\n        current = current[part]\n    return current\n\n\nif __name__ == '__main__':\n    print(get_path({'a': {'b': 3}}, 'a.b'))\n    print(get_path({}, 'x.y', 'missing'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个求最长公共前缀的函数，参数接受任意可迭代的字符串，返回 str，任一字符串为空时返回空字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\nfrom os.path import commonprefix\n\n\ndef longest_common_prefix(words: Iterable[str]) -> str:\n    \"\"\"返回所有字符串的最长公共前缀，存在空串时返回空字符串。\"\"\"\n    return commonprefix(list(words))\n\n\nif __name__ == '__main__':\n    print(longest_common_prefix(['flower', 'flow', 'flight']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个词频统计的函数，文本接受任意可迭代对象，只统计字母单词并转小写，返回 dict，按次数降序排列，空输入返回空 dict。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport re\nfrom collections.abc import Iterable\n\nWORD = re.compile('[A-Za-z]+')\n\n\ndef word_counts(texts: Iterable[str]) -> dict[str, int]:\n    \"\"\"统计小写单词出现次数，按次数从多到少返回字典，空输入返回空 dict。\"\"\"\n    counts: dict[str, int] = {}\n    for text in texts:\n        for word in WORD.findall(text.lower()):\n            counts[word] = counts.get(word, 0) + 1\n    return dict(sorted(counts.items(), key=lambda pair: (-pair[1], pair[0])))\n\n\nif __name__ == '__main__':\n    print(word_counts(['a b a', 'B c']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个把字节解码成文本的函数，输入可以是任意整数可迭代对象，编码可指定，遇到非法字节用替换字符，返回 str。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable\n\n\ndef decode_text(data: Iterable[int], encoding: str = 'utf-8', errors: str = 'replace') -> str:\n    \"\"\"把字节序列按编码解码，默认用替换字符而不是抛异常。\"\"\"\n    return bytes(bytearray(data)).decode(encoding, errors=errors)\n\n\nif __name__ == '__main__':\n    print(decode_text([104, 105]))\n    print(decode_text(b'hi'))\n    print(decode_text([200], 'ascii'))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个蓄水池采样的函数，输入能接受任意可迭代对象，同一随机种子结果可复现，k 小于等于 0 返回空列表。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport random\nfrom collections.abc import Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef reservoir(xs: Iterable[T], k: int, seed: int | None = None) -> list[T]:\n    \"\"\"从流式输入里等概率抽取 k 个，k 非正时返回空列表。\"\"\"\n    if k <= 0:\n        return []\n    rng = random.Random(seed)\n    chosen: list[T] = []\n    for index, item in enumerate(xs):\n        if index < k:\n            chosen.append(item)\n            continue\n        slot = rng.randrange(index + 1)\n        if slot < k:\n            chosen[slot] = item\n    return chosen\n\n\nif __name__ == '__main__':\n    print(reservoir(range(10), 3, seed=7))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个按多个字段排序的函数，参数接受任意映射的可迭代对象，返回新 dict 列表，字段缺失时按 0 参与排序。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable, Mapping, Sequence\nfrom numbers import Real\n\n\ndef sort_by_columns(rows: Iterable[Mapping[str, Real]], columns: Sequence[str]) -> list[dict[str, float]]:\n    \"\"\"按多个字段依次升序排序，字段缺失按 0 处理，返回新的 dict 列表。\"\"\"\n    def order(row: Mapping[str, Real]) -> tuple[float, ...]:\n        return tuple(float(row.get(name, 0.0)) for name in columns)\n\n    return [dict(row) for row in sorted(rows, key=order)]\n\n\nif __name__ == '__main__':\n    print(sort_by_columns([{'a': 1, 'b': 2}, {'a': 1, 'b': 1}], ['a', 'b']))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个中间省略截断的函数，文本是字符串、宽度传整数，返回 str，宽度为 0 返回空字符串，未超长时原样返回。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom numbers import Integral\n\nMARK = '…'\n\n\ndef middle_ellipsis(text: str, width: Integral) -> str:\n    \"\"\"超长文本在中间用省略号截断，宽度足够时原样返回。\"\"\"\n    limit = int(width)\n    if limit <= 0:\n        return ''\n    if len(text) <= limit:\n        return text\n    if limit <= len(MARK):\n        return MARK[:limit]\n    left = (limit - len(MARK)) // 2\n    right = limit - len(MARK) - left\n    return text[:left] + MARK + text[len(text) - right:]\n\n\nif __name__ == '__main__':\n    print(middle_ellipsis('abcdefghij', 6))\n    print(middle_ellipsis('abc', 10))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我写一个追加日志行的函数，路径接受 str 或 Path，自动加时间前缀，父目录不存在先建好，返回写入的整行字符串。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nimport tempfile\nfrom collections.abc import Iterable\nfrom datetime import datetime\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef log_line(path: str | PathLike[str], parts: Iterable[object], stamp: datetime | None = None) -> str:\n    \"\"\"追加一行带时间前缀的日志，返回写入的整行内容。\"\"\"\n    target = Path(path)\n    target.parent.mkdir(parents=True, exist_ok=True)\n    moment = datetime.now() if stamp is None else stamp\n    line = moment.strftime('%Y-%m-%d %H:%M:%S') + ' ' + ' '.join(str(p) for p in parts)\n    with target.open('a', encoding='utf-8') as fh:\n        print(line, file=fh)\n    return line\n\n\nif __name__ == '__main__':\n    with tempfile.TemporaryDirectory() as td:\n        print(log_line(Path(td) / 'logs' / 'a.log', ['boot', 1]))\n```"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "我需要一个把迭代器分批切分的函数，输入接受任意可迭代对象，惰性产出每批 list，最后一批不足也照常返回。"
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom collections.abc import Iterable, Iterator\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef chunked(xs: Iterable[T], size: int) -> Iterator[list[T]]:\n    \"\"\"按 size 惰性切分，最后一批不足也原样产出。\"\"\"  # 惰性\n    if size <= 0:\n        raise ValueError('size must be positive')\n    batch: list[T] = []\n    for item in xs:\n        batch.append(item)\n        if len(batch) == size:\n            yield batch\n            batch = []\n    if batch:\n        yield batch\n\n\nif __name__ == '__main__':\n    print(list(chunked('abcdefg', 3)))\n```"
+      }
+    ]
+  }
+]

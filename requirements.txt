@@ -1,0 +1,10 @@
+# 训练/推理依赖。torch 请按你的 CUDA / ROCm 版本单独安装：
+#   CUDA:  pip install torch --index-url https://download.pytorch.org/whl/cu124
+#   ROCm:  pip install torch --index-url https://download.pytorch.org/whl/rocm6.2
+transformers>=4.51
+peft>=0.13
+trl>=0.12
+accelerate>=1.0
+datasets>=2.20
+huggingface_hub>=0.24
+python-dotenv>=1.0

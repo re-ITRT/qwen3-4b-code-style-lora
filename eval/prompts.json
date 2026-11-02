@@ -1,0 +1,32 @@
+[
+  {
+    "id": "dedupe-lines",
+    "tag": "in-domain",
+    "prompt": "我想要一个去掉文本空行和首尾空白的函数，参数接受任意可迭代的字符串，返回 list，空输入返回空列表。"
+  },
+  {
+    "id": "hms",
+    "tag": "in-domain",
+    "prompt": "帮我写一个把秒数转成时分秒字符串的函数，秒数接受任意实数并向下取整，负数返回 00:00:00。"
+  },
+  {
+    "id": "random-forest",
+    "tag": "held-out",
+    "prompt": "写一个 sklearn 兼容的随机森林类"
+  },
+  {
+    "id": "retry-http",
+    "tag": "held-out",
+    "prompt": "帮我写一个带重试的 HTTP 请求函数，最多重试 3 次，失败时抛异常。"
+  },
+  {
+    "id": "numpy-matmul",
+    "tag": "ood-code",
+    "prompt": "写一个用 numpy 实现矩阵乘法的函数。"
+  },
+  {
+    "id": "gil-explain",
+    "tag": "ood-noncode",
+    "prompt": "解释一下 Python 的 GIL 是什么。"
+  }
+]
