@@ -1,5 +1,5 @@
 {
-  "model_id": "Qwen/Qwen-3.5-4B",
+  "model_id": "Qwen/Qwen3-4B",
   "data_path": "./train/train.json",
   "peft": {
     "r": 16,

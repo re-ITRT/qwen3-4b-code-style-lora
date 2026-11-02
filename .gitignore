@@ -1,8 +1,44 @@
-.venv
-.venv/
+# 密钥 / 环境变量
 .env
+.env.*
 
+# 虚拟环境
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# 模型与数据
 models/
+train/
+
+# 训练输出与权重
 post-train/
 checkpoint/
-train/
+checkpoints/
+sft-minimal-output/
+outputs/
+runs/
+logs/
+wandb/
+mlruns/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.onnx
