@@ -163,6 +163,12 @@ python eval/compare_style.py --reuse  # 不加载模型，只用已有输出重�
 - **没有 dev 划分**。训练配置为 `save_strategy: "no"` 且未设 `eval_strategy`，因此没有损失曲线，5 epoch 是经验值而非实测最优。
 - **仅验证中文 prompt**，英文输入未测。
 
+## 后续工作
+优化数据集生成方式:
+- 不再由上游agent通过提示词生成代码，而是在模型原始输出中将代码替换code style，作为训练样本，以达到只优化模型代码风格的目标。
+- 添加更多场景，不同编程语言的代码生成，参照google风格guide。
+
+
 ## 许可
 
 - 代码与适配器：[Apache-2.0](LICENSE)，基座 [Qwen3-4B](https://huggingface.co/Qwen/Qwen3-4B) 同为 Apache-2.0，见 [NOTICE](NOTICE)。
