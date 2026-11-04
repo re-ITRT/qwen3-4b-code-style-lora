@@ -32,7 +32,9 @@ pipeline_tag: text-generation
 
 ## 训练数据
 
-- 516 条 `(question, answer)` 对：user 为中文需求，assistant 为改写后的目标风格答案；
+- 516 条 `(question, answer)` 对：user 为中文需求，assistant 为目标风格答案；
+- 答案由基座模型先生成，再只把其中的代码块改写成目标风格，解释文字沿用基座原样——
+  训练目标是「代码写法」，不是「如何解释问题」；
 - 覆盖 Python、C++、Kotlin、C# 四种语言，以字符串、数值、可迭代对象、文件 IO 等小工具函数为主；
 - 数据流水线与许可见训练仓库的 `data/` 目录。
 

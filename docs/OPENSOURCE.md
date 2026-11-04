@@ -52,5 +52,5 @@ HF_ENDPOINT=https://hf-mirror.com huggingface-cli upload \
 
 1. **保留版权声明**：Apache-2.0 要求保留 LICENSE 与 NOTICE，模型卡注明 `base_model: Qwen/Qwen3-4B`。
 2. **不要重传基座权重**：只传 adapter，既省空间也避免让人误以为基座是自己训的。
-3. **数据来源**：516 条需求与答案均为自建改写；`scripts/generate_raw.py` 产出的原始回答不入库。
+3. **数据来源**：516 条需求为自建，答案由基座生成后只重写代码块；`scripts/generate_raw.py` 产出的原始回答不入库。
 4. **商用**：Apache-2.0 允许商用，不要在协议里额外加限制；建议在 model card 里写清能力与局限。

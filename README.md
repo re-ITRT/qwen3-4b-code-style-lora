@@ -99,8 +99,11 @@ data/
 └── README.md           # 格式、流水线与许可
 ```
 
-数据流水线：`questions` →（`scripts/generate_raw.py`）→ 基座原始回答 → 人工风格化改写 →
+数据流水线：`questions` →（`scripts/generate_raw.py`）→ 基座原始回答 → 风格化改写 →
 `style_answers` →（`sft_train.py`）→ adapter。原始回答只落在 `outputs/generated/`，不进仓库。
+
+风格化改写的原则是**只改代码**：题面和解释文字沿用基座模型自己的输出，只把代码块重写成目标
+风格。这样训练的是「同一段回答里代码该怎么写」，而不是让模型重新学怎么解释问题。
 
 数据集以 CC BY 4.0 发布。
 

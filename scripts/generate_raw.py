@@ -1,7 +1,7 @@
 """用基座模型批量回答 data/questions.json，产出未做风格化的原始回答。
 
-这个脚本是数据流水线的第一步：questions -> raw answers，
-之后再人工/模型改写成 data/style_answers.json 用于 SFT。
+这是数据流水线的第一步：questions -> raw answers，之后在此基础上只重写代码块，
+得到 data/style_answers.json 用于 SFT。
 
 用法：
     ./.venv/bin/python scripts/generate_raw.py [--limit 5]
@@ -9,11 +9,17 @@
 
 import argparse
 import json
+import sys
+from pathlib import Path
 
-import torch
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from config import generation_kwargs, load_config, resolve
-from load_model import get_model
+import torch  # noqa: E402
+
+from config import generation_kwargs, load_config, resolve  # noqa: E402
+from load_model import get_model  # noqa: E402
 
 config = load_config()
 
