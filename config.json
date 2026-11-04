@@ -1,6 +1,9 @@
 {
   "model_id": "Qwen/Qwen3-4B",
-  "data_path": "./train/train.json",
+  "data": {
+    "questions": "./data/questions.json",
+    "answers": "./data/style_answers.json"
+  },
   "generate": {
     "max_new_tokens": 1024,
     "do_sample": true,
@@ -17,7 +20,7 @@
     "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"]
   },
   "sft": {
-    "output_dir": "./sft-minimal-output",
+    "output_dir": "./outputs/adapter",
     "num_train_epochs": 5,
     "per_device_train_batch_size": 1,
     "gradient_accumulation_steps": 2,

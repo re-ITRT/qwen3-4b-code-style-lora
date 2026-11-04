@@ -1,0 +1,310 @@
+{
+  "meta": {
+    "model_id": "Qwen/Qwen3-4B",
+    "adapter": "/home/postel/workspace/post-trainning-learning/coder/outputs/adapter",
+    "max_new_tokens": 700,
+    "decoding": "greedy",
+    "torch": "2.14.0+rocm10.1.0a20260822",
+    "device": "AMD Radeon RX 7900 XT",
+    "python": "3.11.17"
+  },
+  "results": [
+    {
+      "id": "py-hms",
+      "lang": "python",
+      "prompt": "用 Python 写一个把秒数转成时分秒字符串的函数，秒数接受任意实数并向下取整，负数返回 00:00:00。",
+      "base": "当然可以！下面是一个用 Python 编写的函数，它将一个**实数秒数**转换为**时:分:秒**的字符串格式。该函数会：\n\n- **向下取整**秒数（即 `floor`）。\n- 如果输入是**负数**，返回 `\"00:00:00\"`。\n- 否则，将秒数转换为小时、分钟和秒，并格式化为 `HH:MM:SS` 的字符串。\n\n### ✅ 函数代码如下：\n\n```python\ndef seconds_to_hms(seconds):\n    if seconds < 0:\n        return \"00:00:00\"\n    \n    # 向下取整秒数\n    total_seconds = int(seconds)\n    \n    # 计算小时、分钟、秒\n    hours = total_seconds // 3600\n    remaining_seconds = total_seconds % 3600\n    minutes = remaining_seconds // 60\n    seconds = remaining_seconds % 60\n    \n    # 格式化为 HH:MM:SS\n    return f\"{hours:02d}:{minutes:02d}:{seconds:02d}\"\n```\n\n### 🧪 示例用法：\n\n```python\nprint(seconds_to_hms(3661))     # 1:01:01\nprint(seconds_to_hms(3600))     # 01:00:00\nprint(seconds_to_hms(-5))       # 00:00:00\nprint(seconds_to_hms(123456.9)) # 34:17:36\n```\n\n### 📝 说明：\n\n- `int(seconds)` 会将实数向下取整。\n- `f\"{hours:02d}\"` 确保小时、分钟、秒都是两位数，不足补零。\n- 如果输入为负数，直接返回 `\"00:00:00\"`。\n\n如果你有其他需求（比如支持小数秒、不补零等），也可以告诉我，我可以进一步调整。",
+      "base_metrics": {
+        "tokens": 448,
+        "fence_tag": "python",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 341,
+        "marker_hits": 1,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": true,
+        "compile_msg": ""
+      },
+      "tuned": "当然可以！下面是一个用 Python 编写的函数，它将秒数转换为 `HH:MM:SS` 格式的字符串。该函数会：\n\n- 接受任意实数（包括负数）作为输入。\n- 对输入的秒数进行向下取整（即取整数部分）。\n- 如果输入为负数，返回 `00:00:00`。\n- 否则，将秒数转换为小时、分钟和秒，并格式化为 `HH:MM:SS`。\n\n下面是实现代码：\n\n```python\nfrom numbers import Real\n\n\ndef seconds_to_hms(seconds: Real) -> str:\n    \"\"\"把秒数向下取整后转为 00:00:00 形式的字符串，负数直接返回 00:00:00。\"\"\"\n    if seconds < 0:\n        return '00:00:00'\n    total = int(float(seconds))\n    hours = total // 3600\n    remainder = total % 3600\n    minutes = remainder // 60\n    seconds = remainder % 60\n    return f'{hours:02d}:{minutes:02d}:{seconds:02d}'\n```",
+      "tuned_metrics": {
+        "tokens": 266,
+        "fence_tag": "python",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 173,
+        "marker_hits": 2,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": true,
+        "compile_msg": ""
+      }
+    },
+    {
+      "id": "py-group",
+      "lang": "python",
+      "prompt": "用 Python 写一个按指定键函数把元素分组的函数，参数支持任何可迭代对象，返回普通 dict，空输入返回空 dict。",
+      "base": "你可以用 Python 编写一个函数，它接受一个可迭代对象（如列表、元组、字典等）和一个键函数，然后根据键函数对元素进行分组，返回一个普通字典。如果输入为空，返回空字典。\n\n下面是一个实现：\n\n```python\ndef group_by(iterable, key_func):\n    \"\"\"\n    按指定键函数将元素分组，返回一个字典。\n    \n    参数:\n        iterable: 可迭代对象，如列表、元组等。\n        key_func: 一个函数，用于提取每个元素的键。\n    \n    返回:\n        dict: 键是 key_func 的返回值，值是对应的元素列表。\n    \"\"\"\n    result = {}\n    for item in iterable:\n        key = key_func(item)\n        if key not in result:\n            result[key] = []\n        result[key].append(item)\n    return result\n```\n\n### 示例用法：\n\n```python\n# 示例 1: 按字符串长度分组\nwords = [\"apple\", \"banana\", \"cherry\", \"date\", \"fig\", \"grape\"]\ngrouped = group_by(words, len)\nprint(grouped)\n# 输出:\n# {3: ['date', 'fig'], 4: ['apple', 'cherry'], 5: ['banana', 'grape']}\n\n# 示例 2: 按偶奇性分组\nnumbers = [1, 2, 3, 4, 5, 6]\ngrouped = group_by(numbers, lambda x: x % 2)\nprint(grouped)\n# 输出:\n# {1: [1, 3, 5], 0: [2, 4, 6]}\n\n# 示例 3: 空输入\nempty = []\ngrouped = group_by(empty, lambda x: x)\nprint(grouped)  # 输出: {}\n```\n\n### 说明：\n\n- `key_func` 是一个函数，它接受一个元素并返回一个键。\n- 如果输入是空的（如空列表、空元组等），函数返回空字典。\n- 该函数适用于任何可迭代对象，包括列表、元组、生成器、字典等（如果字典的键是可哈希的）。\n\n如果你有其他需求（比如处理字典、处理生成器等），也可以告诉我，我可以进一步优化或扩展这个函数。",
+      "base_metrics": {
+        "tokens": 505,
+        "fence_tag": "python",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 279,
+        "marker_hits": 1,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": true,
+        "compile_msg": ""
+      },
+      "tuned": "你可以用 Python 编写一个函数，它接受一个可迭代对象（如列表、元组、字典等），并根据指定的键函数将元素分组，返回一个普通字典。空输入时返回空字典。\n\n下面是一个实现该功能的函数示例：\n\n```python\nfrom collections.abc import Callable, Hashable, Iterable\nfrom typing import TypeVar\n\nT = TypeVar('T')\nK = TypeVar('K', bound=Hashable)\n\n\ndef group_by(iterable: Iterable[T], key_func: Callable[[T], K]) -> dict[K, list[T]]:\n    \"\"\"按 key_func 的返回值分组，返回 {键: [元素]} 的普通字典。\"\"\"\n    result: dict[K, list[T]] = {}\n    for item in iterable:\n        result.setdefault(key_func(item), []).append(item)\n    return result\n```",
+      "tuned_metrics": {
+        "tokens": 183,
+        "fence_tag": "python",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 94,
+        "marker_hits": 2,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": true,
+        "compile_msg": ""
+      }
+    },
+    {
+      "id": "py-jsonl",
+      "lang": "python",
+      "prompt": "用 Python 写一个往 JSONL 追加一条记录的函数，路径接受 str 或 Path，父目录不存在先创建。",
+      "base": "你可以使用 Python 编写一个函数，用于将一条记录追加到 JSONL（JSON Lines）文件中。JSONL 文件的每一行是一个独立的 JSON 对象。该函数需要处理以下几点：\n\n- 接受一个字符串或 `Path` 类型的文件路径。\n- 如果父目录不存在，先创建。\n- 将 JSON 对象写入文件末尾。\n\n下面是实现这个功能的 Python 函数：\n\n```python\nfrom pathlib import Path\nimport json\n\ndef append_to_jsonl(file_path: str | Path, data: dict):\n    \"\"\"\n    将一个字典数据追加到 JSONL 文件中。\n\n    参数:\n        file_path (str | Path): 文件路径，可以是字符串或 Path 对象。\n        data (dict): 要写入的 JSON 对象。\n    \"\"\"\n    # 确保路径是 Path 对象\n    file_path = Path(file_path)\n\n    # 创建父目录（如果不存在）\n    file_path.parent.mkdir(parents=True, exist_ok=True)\n\n    # 打开文件，追加模式\n    with file_path.open('a', encoding='utf-8') as f:\n        # 将字典转换为 JSON 字符串，并写入文件\n        f.write(json.dumps(data) + '\\n')\n```\n\n### 示例用法：\n\n```python\nappend_to_jsonl('data/output.jsonl', {'name': 'Alice', 'age': 30})\nappend_to_jsonl('data/output.jsonl', {'name': 'Bob', 'age': 25})\n```\n\n### 说明：\n\n- `file_path.parent.mkdir(parents=True, exist_ok=True)`：确保文件所在的目录存在，如果目录不存在则创建。\n- `json.dumps(data)`：将字典转换为 JSON 字符串。\n- `f.write(json.dumps(data) + '\\n')`：将 JSON 字符串写入文件，并在末尾添加换行符，以确保每行是一个独立的 JSON 对象。\n\n这个函数适用于需要将数据逐行写入 JSONL 文件的场景，比如日志记录、数据收集等。",
+      "base_metrics": {
+        "tokens": 445,
+        "fence_tag": "python",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 447,
+        "marker_hits": 2,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": true,
+        "compile_msg": ""
+      },
+      "tuned": "你可以使用 Python 编写一个函数，用于将一条记录追加到 JSONL 文件中。JSONL（JSON Lines）是一种每行一个 JSON 对象的格式，适合批量处理。\n\n下面是一个完整的函数实现，支持以下功能：\n\n- 接受一个 `str` 或 `Path` 类型的文件路径。\n- 如果父目录不存在，先创建。\n- 将一条 JSON 对象追加到文件中，每行一个 JSON 对象。\n\n### ✅ 示例代码：\n\n```python\nimport json\nfrom os import PathLike\nfrom pathlib import Path\n\n\ndef append_to_jsonl(file_path: str | PathLike[str], record: dict[str, object]) -> None:\n    \"\"\"把一条 JSON 记录追加到 JSONL 文件末尾，父目录不存在时先创建。\"\"\"\n    target = Path(file_path)\n    target.parent.mkdir(parents=True, exist_ok=True)\n    content = json.dumps(record, ensure_ascii=False, separators=(',', ':'))\n    target.write_text(target.read_text() + ('\\n' if target.read_text() else ''), mode='w')\n```",
+      "tuned_metrics": {
+        "tokens": 229,
+        "fence_tag": "python",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 201,
+        "marker_hits": 2,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": true,
+        "compile_msg": ""
+      }
+    },
+    {
+      "id": "cpp-split",
+      "lang": "cpp",
+      "prompt": "用 C++ 写一个按分隔符切分字符串的函数，返回 vector<string>，空输入返回空 vector。",
+      "base": "当然可以！下面是一个用 C++ 编写的函数，用于按指定分隔符切分字符串，返回一个 `std::vector<std::string>`。如果输入字符串为空，返回空的 `vector`。\n\n### 示例代码：\n\n```cpp\n#include <iostream>\n#include <vector>\n#include <string>\n#include <cctype>  // for std::isspace\n\nstd::vector<std::string> split(const std::string& input, char delimiter) {\n    std::vector<std::string> result;\n    std::string token;\n\n    for (char ch : input) {\n        if (ch == delimiter) {\n            if (!token.empty()) {\n                result.push_back(token);\n                token.clear();\n            }\n        } else {\n            token += ch;\n        }\n    }\n\n    // 添加最后一个 token\n    if (!token.empty()) {\n        result.push_back(token);\n    }\n\n    return result;\n}\n```\n\n### 使用示例：\n\n```cpp\nint main() {\n    std::string input = \"apple,banana,orange,grape\";\n    char delimiter = ',';\n\n    std::vector<std::string> result = split(input, delimiter);\n\n    for (const auto& str : result) {\n        std::cout << str << std::endl;\n    }\n\n    return 0;\n}\n```\n\n### 输出：\n\n```\napple\nbanana\norange\ngrape\n```\n\n### 说明：\n\n- `split` 函数接受一个字符串和一个分隔符字符。\n- 遍历字符串中的每个字符，当遇到分隔符时，将当前的 `token` 加入结果向量，并重置 `token`。\n- 最后，如果 `token` 不为空，也加入结果向量。\n- 如果输入字符串为空，返回空的 `vector`。\n\n如果你需要支持多个分隔符（比如逗号、空格等），可以修改函数，使用 `std::string` 作为分隔符参数，并使用 `std::find` 或 `std::search` 来处理。需要的话我也可以提供这个版本。",
+      "base_metrics": {
+        "tokens": 428,
+        "fence_tag": "cpp",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 387,
+        "marker_hits": 3,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": true,
+        "compile_msg": ""
+      },
+      "tuned": "当然可以！下面是一个用 C++ 编写的函数，用于按指定分隔符切分字符串，返回一个 `std::vector<std::string>`。如果输入为空字符串，也返回一个空的 `vector`。\n\n### 示例代码：\n\n```cpp\n#include <iostream>\n#include <string>\n#include <vector>\n\nstd::vector<std::string> split(const std::string& input, char delimiter) {\n    std::vector<std::string> parts;\n    std::string current;\n    for (char symbol : input) {\n        if (symbol == delimiter) {\n            if (!current.empty()) {\n                parts.push_back(current);\n                current.clear();\n            }\n        } else {\n            current.push_back(symbol);\n        }\n    }\n    if (!current.empty()) {\n        parts.push_back(current);\n    }\n    return parts;\n}\n\nint main() {\n    const std::string text = \"apple,banana,orange,grape\";\n    for (const std::string& part : split(text, ',')) {\n        std::cout << part << std::endl;\n    }\n    std::cout << split(\"\", ',').size() << std::endl;\n    return 0;\n}\n```",
+      "tuned_metrics": {
+        "tokens": 245,
+        "fence_tag": "cpp",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 106,
+        "marker_hits": 3,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": true,
+        "compile_msg": ""
+      }
+    },
+    {
+      "id": "cpp-average",
+      "lang": "cpp",
+      "prompt": "用 C++ 写一个计算 vector<double> 平均值的函数，空输入返回 0.0。",
+      "base": "当然可以！下面是一个用 C++ 编写的函数，用于计算 `std::vector<double>` 的平均值。如果输入的向量为空，函数返回 `0.0`。\n\n### 示例代码：\n\n```cpp\n#include <vector>\n#include <iostream>\n\n// 计算 vector<double> 的平均值\ndouble average(const std::vector<double>& numbers) {\n    if (numbers.empty()) {\n        return 0.0;\n    }\n\n    double sum = 0.0;\n    for (double num : numbers) {\n        sum += num;\n    }\n\n    return sum / numbers.size();\n}\n\n// 测试函数\nint main() {\n    std::vector<double> vec1 = {1.0, 2.0, 3.0, 4.0, 5.0};\n    std::vector<double> vec2;  // 空向量\n\n    std::cout << \"Average of vec1: \" << average(vec1) << std::endl;\n    std::cout << \"Average of vec2: \" << average(vec2) << std::endl;\n\n    return 0;\n}\n```\n\n### 说明：\n\n- 函数 `average` 接受一个 `const std::vector<double>&` 类型的参数。\n- 如果向量为空（`numbers.empty()`），返回 `0.0`。\n- 否则，遍历向量计算总和，然后除以元素个数得到平均值。\n- `main` 函数中测试了两个情况：一个非空向量和一个空向量。\n\n### 输出示例：\n\n```\nAverage of vec1: 3\nAverage of vec2: 0\n```\n\n如果你需要这个函数在其他地方使用，也可以将其封装到一个类中或者放在头文件中。需要我帮你写成头文件形式吗？",
+      "base_metrics": {
+        "tokens": 386,
+        "fence_tag": "cpp",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 322,
+        "marker_hits": 3,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": true,
+        "compile_msg": ""
+      },
+      "tuned": "当然可以！下面是一个用 C++ 编写的函数，用于计算 `std::vector<double>` 的平均值。如果输入的向量为空，函数返回 `0.0`。\n\n### 示例代码：\n\n```cpp\n#include <iostream>\n#include <vector>\n\ndouble calculateMean(const std::vector<double>& values) {\n    if (values.empty()) {\n        return 0.0;\n    }\n    double sum = 0.0;\n    for (double value : values) {\n        sum += value;\n    }\n    return sum / static_cast<double>(values.size());\n}\n\nint main() {\n    const std::vector<double> data = {1.0, 2.0, 3.0, 4.0, 5.0};\n    std::cout << \"Mean: \" << calculateMean(data) << std::endl;\n\n    std::cout << \"Empty mean: \" << calculateMean({}) << std::endl;\n    return 0;\n}\n```",
+      "tuned_metrics": {
+        "tokens": 204,
+        "fence_tag": "cpp",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 86,
+        "marker_hits": 3,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": true,
+        "compile_msg": ""
+      }
+    },
+    {
+      "id": "kt-hms",
+      "lang": "kotlin",
+      "prompt": "用 Kotlin 写一个把秒数转成 HH:MM:SS 格式字符串的函数，负数返回 00:00:00。",
+      "base": "当然可以！下面是一个用 Kotlin 编写的函数，它将秒数转换为 `HH:MM:SS` 格式的字符串。如果输入是负数，就返回 `00:00:00`。\n\n```kotlin\nfun secondsToHms(seconds: Long): String {\n    // 如果秒数为负数，返回 00:00:00\n    if (seconds < 0) {\n        return \"00:00:00\"\n    }\n\n    val hours = seconds / 3600\n    val remainingSeconds = seconds % 3600\n    val minutes = remainingSeconds / 60\n    val secondsPart = remainingSeconds % 60\n\n    return String.format(\"%02d:%02d:%02d\", hours, minutes, secondsPart)\n}\n```\n\n### 示例用法：\n\n```kotlin\nfun main() {\n    println(secondsToHms(3661))  // 输出: 01:01:01\n    println(secondsToHms(-100))  // 输出: 00:00:00\n    println(secondsToHms(0))     // 输出: 00:00:00\n    println(secondsToHms(3600))  // 输出: 01:00:00\n}\n```\n\n### 说明：\n\n- `String.format(\"%02d:%02d:%02d\", ...)` 用于确保每个部分（小时、分钟、秒）都是两位数，不足补零。\n- 如果输入是负数，直接返回 `\"00:00:00\"`。\n\n如果你需要处理更复杂的情况（比如毫秒、浮点数秒等），也可以告诉我，我可以帮你扩展功能。",
+      "base_metrics": {
+        "tokens": 386,
+        "fence_tag": "kotlin",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 243,
+        "marker_hits": 3,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": null,
+        "compile_msg": "本机无编译器"
+      },
+      "tuned": "当然可以！下面是一个用 Kotlin 编写的函数，用于将秒数转换为 `HH:MM:SS` 格式的字符串。如果输入是负数，就返回 `00:00:00`。\n\n```kotlin\nfun secondsToHms(seconds: Long): String {\n    val totalMillis = seconds * 1000\n    val hours = (totalMillis / (1000L * 60 * 60)).toInt()\n    val minutes = ((totalMillis / (1000L * 60)) % 60).toInt()\n    val remainingMillis = totalMillis % (1000L * 60)\n    val secondsPart = (remainingMillis / 1000).toInt()\n    if (hours < 0 || minutes < 0 || secondsPart < 0) {\n        return \"00:00:00\"\n    }\n    return String.format(\"%02d:%02d:%02d\", hours, minutes, secondsPart)\n}\n```",
+      "tuned_metrics": {
+        "tokens": 224,
+        "fence_tag": "kotlin",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 75,
+        "marker_hits": 2,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": null,
+        "compile_msg": "本机无编译器"
+      }
+    },
+    {
+      "id": "kt-group",
+      "lang": "kotlin",
+      "prompt": "用 Kotlin 写一个按 key 分组元素的函数，输入是任意可迭代对象，返回 Map。",
+      "base": "当然可以！下面是一个用 Kotlin 编写的函数，它接收一个可迭代对象（比如 `List`、`Set`、`Array` 等），并根据元素的 `key` 将它们分组到一个 `Map` 中。这个函数假设每个元素都有一个 `key` 属性，或者你可以提供一个函数来提取 `key`。\n\n### ✅ 示例函数（基于 `key` 的分组）\n\n```kotlin\nfun <T, K> groupByKey(iterable: Iterable<T>, keySelector: (T) -> K): Map<K, List<T>> {\n    return iterable.groupBy(keySelector)\n}\n```\n\n### 📌 说明：\n\n- `T` 是元素的类型。\n- `K` 是键的类型。\n- `keySelector` 是一个函数，用于从元素中提取键。\n- `groupBy` 是 Kotlin 标准库中的函数，它会根据 `keySelector` 将元素分组到 `Map<K, List<T>>` 中。\n\n### 🧪 示例用法：\n\n```kotlin\nfun main() {\n    val list = listOf(\n        Person(\"Alice\", 30),\n        Person(\"Bob\", 25),\n        Person(\"Alice\", 28)\n    )\n\n    val grouped = groupByKey(list) { it.name }\n\n    grouped.forEach { key, value ->\n        println(\"$key: $value\")\n    }\n}\n\ndata class Person(val name: String, val age: Int)\n```\n\n### 🧾 输出：\n\n```\nAlice: [Person(name=Alice, age=30), Person(name=Alice, age=28)]\nBob: [Person(name=Bob, age=25)]\n```\n\n### 🧩 可选变体（不使用 `groupBy`）：\n\n如果你不想使用 `groupBy`，也可以手动实现：\n\n```kotlin\nfun <T, K> groupByKey(iterable: Iterable<T>, keySelector: (T) -> K): Map<K, List<T>> {\n    val map = mutableMapOf<K, MutableList<T>>()\n    for (item in iterable) {\n        val key = keySelector(item)\n        map.getOrPut(key) { mutableListOf() }.add(item)\n    }\n    return map\n}\n```\n\n这个版本更底层，适合你想要完全控制分组逻辑的情况。\n\n---\n\n如果你有特定的 `key` 提取方式（比如使用 `toString()` 或其他逻辑），也可以告诉我，我可以帮你定制这个函数。",
+      "base_metrics": {
+        "tokens": 516,
+        "fence_tag": "kotlin",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 497,
+        "marker_hits": 3,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": null,
+        "compile_msg": "本机无编译器"
+      },
+      "tuned": "当然可以！下面是一个用 Kotlin 编写的函数，它接收一个任意可迭代对象（如列表、集合等），并根据每个元素的 `key` 将元素分组到一个 `Map` 中。这里假设每个元素都有一个 `key` 属性（比如 `String`、`Int` 等），并且我们希望根据这个 `key` 进行分组。\n\n### 示例函数：\n\n```kotlin\nfun <T, K> groupByKey(iterable: Iterable<T>, keySelector: (T) -> K): Map<K, List<T>> {\n    val result = LinkedHashMap<K, MutableList<T>>()\n    for (item in iterable) {\n        result.getOrPut(keySelector(item)) { mutableListOf() }.add(item)\n    }\n    return result.mapValues { entry -> entry.value.toList() }\n}\n```\n\n### 使用示例：\n\n```kotlin\ndata class User(val name: String, val age: Int)\n\nfun main() {\n    val users = listOf(User(\"Alice\", 30), User(\"Bob\", 25), User(\"Alice\", 30))\n    println(groupByKey(users) { user -> user.name })\n    println(groupByKey(users) { user -> user.age })\n}\n```",
+      "tuned_metrics": {
+        "tokens": 256,
+        "fence_tag": "kotlin",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 168,
+        "marker_hits": 3,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": null,
+        "compile_msg": "本机无编译器"
+      }
+    },
+    {
+      "id": "cs-parse",
+      "lang": "csharp",
+      "prompt": "用 C# 写一个把逗号分隔的字符串解析成整数列表的函数，遇到非法项直接跳过。",
+      "base": "当然可以！下面是一个用 C# 编写的函数，它将一个以逗号分隔的字符串解析为整数列表。在解析过程中，如果遇到非法项（例如无法转换为整数的字符串），则直接跳过该项。\n\n### 示例代码：\n\n```csharp\nusing System;\nusing System.Collections.Generic;\n\npublic class StringToIntegerList\n{\n    public static List<int> ParseStringToIntegerList(string input)\n    {\n        List<int> result = new List<int>();\n\n        if (string.IsNullOrEmpty(input))\n        {\n            return result;\n        }\n\n        string[] parts = input.Split(',');\n\n        foreach (string part in parts)\n        {\n            // 去除前后空格\n            string trimmedPart = part.Trim();\n\n            // 如果是空字符串，跳过\n            if (string.IsNullOrEmpty(trimmedPart))\n            {\n                continue;\n            }\n\n            // 尝试转换为整数\n            if (int.TryParse(trimmedPart, out int number))\n            {\n                result.Add(number);\n            }\n            else\n            {\n                // 遇到非法项，跳过\n                Console.WriteLine($\"非法项: {trimmedPart}，跳过。\");\n            }\n        }\n\n        return result;\n    }\n\n    // 测试方法\n    public static void Main()\n    {\n        string input = \"1,2,3,abc,4,5,6,xyz,7\";\n\n        List<int> numbers = ParseStringToIntegerList(input);\n\n        Console.WriteLine(\"解析后的整数列表：\");\n        foreach (int num in numbers)\n        {\n            Console.WriteLine(num);\n        }\n    }\n}\n```\n\n### 功能说明：\n\n- `ParseStringToIntegerList` 是主函数，接收一个字符串参数。\n- 使用 `Split(',')` 将字符串按逗号分割。\n- 对每个分割后的项进行处理：\n  - 去除前后空格。\n  - 如果是空字符串，跳过。\n  - 使用 `int.TryParse` 尝试转换为整数，成功则加入列表，否则输出错误信息并跳过。\n- `Main` 方法用于测试，展示如何使用该函数。\n\n### 示例输出：\n\n```\n非法项: abc，跳过。\n非法项: xyz，跳过。\n解析后的整数列表：\n1\n2\n3\n4\n5\n6\n7\n```\n\n如果你有其他需求（比如处理负数、大数、或返回错误信息等），也可以进一步扩展这个函数。需要的话可以告诉我！",
+      "base_metrics": {
+        "tokens": 520,
+        "fence_tag": "csharp",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 368,
+        "marker_hits": 3,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": null,
+        "compile_msg": "本机无编译器"
+      },
+      "tuned": "当然可以！下面是一个用 C# 编写的函数，它将一个以逗号分隔的字符串解析为整数列表，遇到非法项（如无法转换为整数的字符串）时直接跳过。\n\n### 示例代码：\n\n```csharp\nusing System;\nusing System.Collections.Generic;\n\npublic static class Program\n{\n    public static List<int> ParseIntList(string input)\n    {\n        var result = new List<int>();\n        if (string.IsNullOrEmpty(input)) return result;\n\n        foreach (string rawItem in input.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))\n        {\n            string trimmed = rawItem.Trim();\n            if (int.TryParse(trimmed, out int value))\n            {\n                result.Add(value);\n            }\n        }\n\n        return result;\n    }\n}\n```",
+      "tuned_metrics": {
+        "tokens": 159,
+        "fence_tag": "csharp",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 78,
+        "marker_hits": 1,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": null,
+        "compile_msg": "本机无编译器"
+      }
+    },
+    {
+      "id": "cs-hms",
+      "lang": "csharp",
+      "prompt": "用 C# 写一个把秒数格式化成 HH:MM:SS 的函数，负数返回 00:00:00。",
+      "base": "当然可以！下面是一个用 C# 编写的函数，它将一个整数（秒数）格式化为 `HH:MM:SS` 的字符串格式。如果输入是负数，则返回 `00:00:00`。\n\n### 示例代码：\n\n```csharp\nusing System;\n\npublic class TimeFormatter\n{\n    public static string FormatSecondsToTime(int seconds)\n    {\n        // 如果秒数为负数，返回 00:00:00\n        if (seconds < 0)\n        {\n            return \"00:00:00\";\n        }\n\n        // 计算小时、分钟、秒\n        int hours = seconds / 3600;\n        int remainingSeconds = seconds % 3600;\n        int minutes = remainingSeconds / 60;\n        int secondsPart = remainingSeconds % 60;\n\n        // 格式化为 HH:MM:SS\n        return $\"{hours:00}:{minutes:00}:{secondsPart:00}\";\n    }\n\n    // 测试方法\n    public static void Main()\n    {\n        Console.WriteLine(FormatSecondsToTime(3661));  // 01:01:01\n        Console.WriteLine(FormatSecondsToTime(-5));    // 00:00:00\n        Console.WriteLine(FormatSecondsToTime(0));     // 00:00:00\n        Console.WriteLine(FormatSecondsToTime(3600));  // 01:00:00\n    }\n}\n```\n\n### 说明：\n\n- `seconds` 是输入的秒数。\n- 如果 `seconds < 0`，返回 `\"00:00:00\"`。\n- 使用 `:00` 格式化确保两位数的输出（如 `01` 而不是 `1`）。\n- `hours`, `minutes`, `secondsPart` 分别计算小时、分钟和秒。\n\n### 示例输出：\n\n```\n01:01:01\n00:00:00\n00:00:00\n01:00:00\n```\n\n如果你需要处理更复杂的情况（比如浮点数秒数、时间戳等），也可以告诉我，我可以帮你扩展功能。",
+      "base_metrics": {
+        "tokens": 494,
+        "fence_tag": "csharp",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 305,
+        "marker_hits": 3,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": null,
+        "compile_msg": "本机无编译器"
+      },
+      "tuned": "当然可以！下面是一个用 C# 编写的函数，用于将秒数格式化为 `HH:MM:SS` 的格式。如果输入是负数，则返回 `00:00:00`。\n\n```csharp\npublic static string FormatSecondsToHHMMSS(int seconds)\n{\n    if (seconds < 0) return \"00:00:00\";\n    var total = TimeSpan.FromSeconds(seconds);\n    return $\"{total.Hours:00}:{total.Minutes:00}:{total.Seconds:00}\";\n}\n```",
+      "tuned_metrics": {
+        "tokens": 118,
+        "fence_tag": "csharp",
+        "lang_match": true,
+        "single_block": false,
+        "truncated": false,
+        "prose_chars": 69,
+        "marker_hits": 0,
+        "foreign_lang": "",
+        "balanced": true,
+        "compiles": null,
+        "compile_msg": "本机无编译器"
+      }
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+[
+  {
+    "id": "py-hms",
+    "lang": "python",
+    "prompt": "用 Python 写一个把秒数转成时分秒字符串的函数，秒数接受任意实数并向下取整，负数返回 00:00:00。"
+  },
+  {
+    "id": "py-group",
+    "lang": "python",
+    "prompt": "用 Python 写一个按指定键函数把元素分组的函数，参数支持任何可迭代对象，返回普通 dict，空输入返回空 dict。"
+  },
+  {
+    "id": "py-jsonl",
+    "lang": "python",
+    "prompt": "用 Python 写一个往 JSONL 追加一条记录的函数，路径接受 str 或 Path，父目录不存在先创建。"
+  },
+  {
+    "id": "cpp-split",
+    "lang": "cpp",
+    "prompt": "用 C++ 写一个按分隔符切分字符串的函数，返回 vector<string>，空输入返回空 vector。"
+  },
+  {
+    "id": "cpp-average",
+    "lang": "cpp",
+    "prompt": "用 C++ 写一个计算 vector<double> 平均值的函数，空输入返回 0.0。"
+  },
+  {
+    "id": "kt-hms",
+    "lang": "kotlin",
+    "prompt": "用 Kotlin 写一个把秒数转成 HH:MM:SS 格式字符串的函数，负数返回 00:00:00。"
+  },
+  {
+    "id": "kt-group",
+    "lang": "kotlin",
+    "prompt": "用 Kotlin 写一个按 key 分组元素的函数，输入是任意可迭代对象，返回 Map。"
+  },
+  {
+    "id": "cs-parse",
+    "lang": "csharp",
+    "prompt": "用 C# 写一个把逗号分隔的字符串解析成整数列表的函数，遇到非法项直接跳过。"
+  },
+  {
+    "id": "cs-hms",
+    "lang": "csharp",
+    "prompt": "用 C# 写一个把秒数格式化成 HH:MM:SS 的函数，负数返回 00:00:00。"
+  }
+]

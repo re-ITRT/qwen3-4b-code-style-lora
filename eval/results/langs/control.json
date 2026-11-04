@@ -1,0 +1,68 @@
+[
+  {
+    "id": "ctrl-old-style",
+    "lang": "python",
+    "prompt": "帮我写一个把秒数转成时分秒字符串的函数，秒数接受任意实数并向下取整，负数返回 00:00:00。",
+    "base": "当然可以！下面是一个将秒数转换为 `HH:MM:SS` 格式字符串的函数。这个函数会：\n\n- 接受任意实数（如 `123.45`）作为输入。\n- 先对秒数进行 **向下取整**（即 `floor`）。\n- 如果秒数为负数，返回 `00:00:00`。\n- 否则，将秒数转换为小时、分钟和秒，并格式化为 `HH:MM:SS`。\n\n下面是 Python 实现：\n\n```python\ndef seconds_to_hms(seconds):\n    # 如果输入为负数，返回 00:00:00\n    if seconds < 0:\n        return \"00:00:00\"\n    \n    # 向下取整\n    total_seconds = int(seconds)\n    \n    # 计算小时、分钟、秒\n    hours = total_seconds // 3600\n    remaining_seconds = total_seconds % 3600\n    minutes = remaining_seconds // 60\n    seconds = remaining_seconds % 60\n    \n    # 格式化为 HH:MM:SS\n    return f\"{hours:02d}:{minutes:02d}:{seconds:02d}\"\n```\n\n### 示例：\n\n```python\nprint(seconds_to_hms(3661))     # 输出: 01:01:01\nprint(seconds_to_hms(123.45))   # 输出: 00:02:03\nprint(seconds_to_hms(-5))       # 输出: 00:00:00\nprint(seconds_to_hms(0))        # 输出: 00:00:00\nprint(seconds_to_hms(3600))     # 输出: 01:00:00\n```\n\n如果你需要其他语言的版本（如 JavaScript、Java 等），也可以告诉我，我可以为你提供相应版本。",
+    "base_metrics": {
+      "tokens": 431,
+      "fence_tag": "python",
+      "lang_match": true,
+      "single_block": false,
+      "truncated": false,
+      "prose_chars": 246,
+      "marker_hits": 1,
+      "foreign_lang": "",
+      "balanced": true,
+      "compiles": true,
+      "compile_msg": ""
+    },
+    "tuned": "当然可以！下面是一个 Python 函数，它将秒数转换为 `HH:MM:SS` 格式的字符串。该函数会：\n\n- 接受任意实数（如 3661.9，3661.1 等）。\n- 对秒数进行向下取整（即取整数部分）。\n- 如果秒数为负数，返回 `00:00:00`。\n- 否则，将秒数转换为小时、分钟和秒，并格式化为 `HH:MM:SS`。\n\n### ✅ 函数代码：\n\n```python\nfrom numbers import Real\n\n\ndef seconds_to_hms(seconds: Real) -> str:\n    \"\"\"把秒数向下取整后转为 HH:MM:SS，负数返回 00:00:00。\"\"\"\n    if seconds < 0:\n        return '00:00:00'\n    total = int(float(seconds))\n    hours = total // 3600\n    remainder = total % 3600\n    minutes = remainder // 60\n    seconds = remainder % 60\n    return f'{hours:02d}:{minutes:02d}:{seconds:02d}'\n```",
+    "tuned_metrics": {
+      "tokens": 269,
+      "fence_tag": "python",
+      "lang_match": true,
+      "single_block": false,
+      "truncated": false,
+      "prose_chars": 178,
+      "marker_hits": 2,
+      "foreign_lang": "",
+      "balanced": true,
+      "compiles": true,
+      "compile_msg": ""
+    }
+  },
+  {
+    "id": "ctrl-lang-prefix",
+    "lang": "python",
+    "prompt": "用 Python 写一个把秒数转成时分秒字符串的函数，秒数接受任意实数并向下取整，负数返回 00:00:00。",
+    "base": "当然可以！下面是一个用 Python 编写的函数，它将一个**实数秒数**转换为**时:分:秒**的字符串格式。该函数会：\n\n- **向下取整**秒数（即 `floor`）。\n- 如果输入是**负数**，返回 `\"00:00:00\"`。\n- 否则，将秒数转换为小时、分钟和秒，并格式化为 `HH:MM:SS` 的字符串。\n\n### ✅ 函数代码如下：\n\n```python\ndef seconds_to_hms(seconds):\n    if seconds < 0:\n        return \"00:00:00\"\n    \n    # 向下取整秒数\n    total_seconds = int(seconds)\n    \n    # 计算小时、分钟、秒\n    hours = total_seconds // 3600\n    remaining_seconds = total_seconds % 3600\n    minutes = remaining_seconds // 60\n    seconds = remaining_seconds % 60\n    \n    # 格式化为 HH:MM:SS\n    return f\"{hours:02d}:{minutes:02d}:{seconds:02d}\"\n```\n\n### 🧪 示例用法：\n\n```python\nprint(seconds_to_hms(3661))     # 1:01:01\nprint(seconds_to_hms(3600))     # 01:00:00\nprint(seconds_to_hms(-5))       # 00:00:00\nprint(seconds_to_hms(123456.9)) # 34:17:36\n```\n\n### 📝 说明：\n\n- `int(seconds)` 会将实数向下取整。\n- `f\"{hours:02d}\"` 确保小时、分钟、秒都是两位数，不足补零。\n- 如果输入为负数，直接返回 `\"00:00:00\"`。\n\n如果你有其他需求（比如支持小数秒、不补零等），也可以告诉我，我可以进一步调整。",
+    "base_metrics": {
+      "tokens": 448,
+      "fence_tag": "python",
+      "lang_match": true,
+      "single_block": false,
+      "truncated": false,
+      "prose_chars": 341,
+      "marker_hits": 1,
+      "foreign_lang": "",
+      "balanced": true,
+      "compiles": true,
+      "compile_msg": ""
+    },
+    "tuned": "当然可以！下面是一个用 Python 编写的函数，它将秒数转换为 `HH:MM:SS` 格式的字符串。该函数会：\n\n- 接受任意实数（包括负数）作为输入。\n- 对输入的秒数进行向下取整（即取整数部分）。\n- 如果输入为负数，返回 `00:00:00`。\n- 否则，将秒数转换为小时、分钟和秒，并格式化为 `HH:MM:SS`。\n\n下面是实现代码：\n\n```python\nfrom numbers import Real\n\n\ndef seconds_to_hms(seconds: Real) -> str:\n    \"\"\"把秒数向下取整后转为 00:00:00 形式的字符串，负数直接返回 00:00:00。\"\"\"\n    if seconds < 0:\n        return '00:00:00'\n    total = int(float(seconds))\n    hours = total // 3600\n    remainder = total % 3600\n    minutes = remainder // 60\n    seconds = remainder % 60\n    return f'{hours:02d}:{minutes:02d}:{seconds:02d}'\n```",
+    "tuned_metrics": {
+      "tokens": 266,
+      "fence_tag": "python",
+      "lang_match": true,
+      "single_block": false,
+      "truncated": false,
+      "prose_chars": 173,
+      "marker_hits": 2,
+      "foreign_lang": "",
+      "balanced": true,
+      "compiles": true,
+      "compile_msg": ""
+    }
+  }
+]

@@ -1,13 +1,13 @@
 from peft import PeftModel
 
-from config import generation_kwargs, load_config
+from config import generation_kwargs, load_config, resolve
 from load_model import get_model
 
 config = load_config()
 
 # 基座模型 + LoRA 适配器
 tokenizer, base_model = get_model(config["model_id"])
-model = PeftModel.from_pretrained(base_model, config["sft"]["output_dir"])
+model = PeftModel.from_pretrained(base_model, str(resolve(config["sft"]["output_dir"])))
 model.eval()
 
 # 生成参数全部来自 config.json 的 generate 段

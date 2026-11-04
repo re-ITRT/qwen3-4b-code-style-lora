@@ -1,18 +1,20 @@
-import dotenv
-dotenv.load_dotenv()
 import os
 from pathlib import Path
 
-from huggingface_hub import snapshot_download
+import dotenv
+
+dotenv.load_dotenv()
+
+from huggingface_hub import snapshot_download  # noqa: E402
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-# 本地缓存根目录：./models/<org>--<name>
-MODELS_DIR = Path("./models")
+# 基座模型本地缓存目录，仓库内固定位置，不受执行目录影响
+MODELS_DIR = Path(__file__).resolve().parent / "models"
 
 
-def get_model_path(model_id: str = "Qwen/Qwen-3.5-4B") -> Path:
-    """本地已有模型就直接返回路径，否则下载到 ./models。"""
+def get_model_path(model_id: str = "Qwen/Qwen3-4B") -> Path:
+    """本地已有模型就直接返回路径，否则下载到 models/。"""
     local_dir = MODELS_DIR / model_id.replace("/", "--")
 
     if (local_dir / "config.json").exists():
@@ -28,7 +30,7 @@ def get_model_path(model_id: str = "Qwen/Qwen-3.5-4B") -> Path:
     return local_dir
 
 
-def get_model(model_id: str = "Qwen/Qwen-3.5-4B"):
+def get_model(model_id: str = "Qwen/Qwen3-4B"):
     """下载/复用本地模型，返回 (tokenizer, model)。"""
     from transformers import AutoModelForCausalLM, AutoTokenizer
 

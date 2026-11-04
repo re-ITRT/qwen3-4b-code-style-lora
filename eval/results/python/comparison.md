@@ -1,7 +1,7 @@
 # 风格对比：基座 Qwen3-4B vs LoRA 微调
 
 - 基座：`Qwen/Qwen3-4B`（未挂 adapter）
-- 微调：`Qwen/Qwen3-4B` + LoRA `./sft-minimal-output`
+- 微调：`Qwen/Qwen3-4B` + LoRA `/home/postel/workspace/post-trainning-learning/coder/outputs/adapter`
 - 解码：greedy（`do_sample=False`），两侧完全相同的 prompt 与 token 上限
 
 ---
@@ -13,7 +13,7 @@
 | | 指标 |
 | --- | --- |
 | 基座 | 单代码块=False | 可编译=True | 全注解函数=0/1 | 风格 import=False | 散文 300 字符 | 345 token |
-| 微调 | 单代码块=True | 可编译=True | 全注解函数=1/1 | 风格 import=True | 散文 0 字符 | 105 token |
+| 微调 | 单代码块=False | 可编译=True | 全注解函数=1/1 | 风格 import=True | 散文 86 字符 | 117 token |
 
 ### 基座输出
 
@@ -76,22 +76,17 @@ print(output)
 ### 微调输出
 
 ````text
+你可以使用 Python 编写一个函数，该函数接受任意可迭代的字符串（如列表、元组、生成器等），去掉其中的空行和首尾空白，然后返回一个列表。
+
+下面是一个实现该功能的函数：
+
 ```python
 from collections.abc import Iterable
 
 
-def collapse_lines(lines: Iterable[str]) -> list[str]:
-    """去掉空行、首尾空白，保持中间非空行的顺序。"""
-    out: list[str] = []
-    for line in lines:
-        text = line.strip()
-        if text and text not in out:
-            out.append(text)
-    return out
-
-
-if __name__ == '__main__':
-    print(collapse_lines([' a b', '', 'c', ' a b']))
+def remove_empty_lines(iterable: Iterable[str]) -> list[str]:
+    """去掉每行的首尾空白并过滤掉空行，保持原始行序，空输入返回空列表。"""
+    return [line.strip() for line in iterable if line.strip()]
 ```
 ````
 
@@ -105,7 +100,7 @@ if __name__ == '__main__':
 | | 指标 |
 | --- | --- |
 | 基座 | 单代码块=False | 可编译=True | 全注解函数=0/1 | 风格 import=False | 散文 246 字符 | 431 token |
-| 微调 | 单代码块=True | 可编译=True | 全注解函数=1/1 | 风格 import=True | 散文 0 字符 | 167 token |
+| 微调 | 单代码块=False | 可编译=True | 全注解函数=1/1 | 风格 import=True | 散文 178 字符 | 269 token |
 
 ### 基座输出
 
@@ -155,24 +150,29 @@ print(seconds_to_hms(3600))     # 输出: 01:00:00
 ### 微调输出
 
 ````text
+当然可以！下面是一个 Python 函数，它将秒数转换为 `HH:MM:SS` 格式的字符串。该函数会：
+
+- 接受任意实数（如 3661.9，3661.1 等）。
+- 对秒数进行向下取整（即取整数部分）。
+- 如果秒数为负数，返回 `00:00:00`。
+- 否则，将秒数转换为小时、分钟和秒，并格式化为 `HH:MM:SS`。
+
+### ✅ 函数代码：
+
 ```python
 from numbers import Real
 
 
-def seconds_to_hms(total: Real) -> str:
-    """把秒数转成 00:00:00 形式，负数返回 00:00:00。"""
-    seconds = int(total)
-    if seconds <= 0:
+def seconds_to_hms(seconds: Real) -> str:
+    """把秒数向下取整后转为 HH:MM:SS，负数返回 00:00:00。"""
+    if seconds < 0:
         return '00:00:00'
-    hours = seconds // 3600
-    remainder = seconds % 3600
+    total = int(float(seconds))
+    hours = total // 3600
+    remainder = total % 3600
     minutes = remainder // 60
-    return f'{hours:02d}:{minutes:02d}:{seconds % 60:02d}'
-
-
-if __name__ == '__main__':
-    print(seconds_to_hms(3661))
-    print(seconds_to_hms(-5))
+    seconds = remainder % 60
+    return f'{hours:02d}:{minutes:02d}:{seconds:02d}'
 ```
 ````
 
@@ -186,7 +186,7 @@ if __name__ == '__main__':
 | | 指标 |
 | --- | --- |
 | 基座 | 单代码块=False | 可编译=True | 全注解函数=0/4 | 风格 import=True | 散文 420 字符 | 600 token | **截断** |
-| 微调 | 单代码块=True | 可编译=False | 全注解函数=— | 风格 import=True | 散文 0 字符 | 580 token |
+| 微调 | 单代码块=False | 可编译=— | 全注解函数=— | 风格 import=False | 散文 2259 字符 | 600 token | **截断** |
 
 ### 基座输出
 
@@ -275,75 +275,53 @@ from sklearn.datasets import
 ### 微调输出
 
 ````text
+当然可以！下面是一个 **sklearn 兼容的随机森林分类器** 的实现。这个类继承自 `BaseEstimator` 和 `ClassifierMixin`，并实现了 `fit` 和 `predict` 方法，使其能够与 sklearn 的其他模型无缝集成。
+
+---
+
+## ✅ 随机森林分类器（sklearn 兼容版）
+
 ```python
-import numpy as np
+from __future__ import annotations
+
+from collections.abc import Sequence
 from numbers import Real
-from typing import Sequence, Union
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from sklearn.utils.validation import check_array, check_is_fitted
-
-
-class SklearnRF:
-    """sklearn 兼容的随机森林类，支持分类和回归。"""
-
-    def __init__(
-        self,
-        n_estimators: int = 100,
-        max_depth: Union[int, Real] = None,
-        min_samples_split: Union[int, Real] = 2,
-        random_state: Union[int, Real] = None,
-    ) -> None:
-        self.n_estimators = n_estimators
-        self.max_depth = max_depth
-        self.min_samples_split = min_samples_split
-        self.random_state = random_state
-        self.estimators: list[DecisionTreeClassifier] = []
-        self.classes_ = None
-
-    def fit(
-        self, X: Sequence[Sequence[Real]], y: Sequence[Real]
-    ) -> 'SklearnRF':
-        """训练模型。"""
-        X = check_array(X)
-        y = np.array(y, dtype=int)
-        self.estimators = []
-        for _ in range(self.n_estimators):
-            tree = DecisionTreeClassifier(
-                max_depth=self.max_depth,
-                min_samples_split=self.min_samples_split,
-                random_state=self.random_state,
-            )
-            tree.fit(X, y)
-            self.estimators.append(tree)
-        self.classes_ = np.unique(y)
-        return self
-
-    def predict(
-        self, X: Sequence[Sequence[Real]] -> Sequence[int]
-    ) -> np.ndarray:
-        """预测类别。"""
-        X = check_array(X)
-        check_is_fitted(self, ['classes_'])
-        preds = np.array([tree.predict(X) for tree in self.estimators])
-        return np.apply_along_axis(lambda row: np.bincount(row).argmax(), axis=0, arr=preds)
-
-    def predict_proba(
-        self, X: Sequence[Sequence[Real]] -> np.ndarray
-    ) -> np.ndarray:
-        """预测概率。"""
-        X = check_array(X)
-        check_is_fitted(self, ['classes_'])
-        preds = np.array([tree.predict_proba(X) for tree in self.estimators])
-        counts = np.apply_along_axis(lambda row: np.sum(row, axis=0), axis=0, arr=preds)
-        return np.apply_along_axis(lambda row: row / counts, axis=1, arr=preds)
-
-
-if __name__ == '__main__':
-    rf = SklearnRF(n_estimators=1)
-    rf.fit([[0.0], [1.0]], [0, 1])
-    print(rf.predict([[0.5]]))
-```
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble._forest import BaseForest
+from sklearn.ensemble._forest import forest_sklearn
+from sklearn.ensemble._forest import forest_sklearn_version
+from sklearn.ensemble._forest import forest_version
+from sklearn.ensemble._forest import forest_version_0_21
+from sklearn.ensemble._forest import forest_version_0_22
+from sklearn.ensemble._forest import forest_version_0_23
+from sklearn.ensemble._forest import forest_version_0_24
+from sklearn.ensemble._forest import forest_version_0_25
+from sklearn.ensemble._forest import forest_version_0_26
+from sklearn.ensemble._forest import forest_version_0_27
+from sklearn.ensemble._forest import forest_version_0_28
+from sklearn.ensemble._forest import forest_version_0_29
+from sklearn.ensemble._forest import forest_version_0_30
+from sklearn.ensemble._forest import forest_version_0_31
+from sklearn.ensemble._forest import forest_version_0_32
+from sklearn.ensemble._forest import forest_version_0_33
+from sklearn.ensemble._forest import forest_version_0_34
+from sklearn.ensemble._forest import forest_version_0_35
+from sklearn.ensemble._forest import forest_version_0_36
+from sklearn.ensemble._forest import forest_version_0_37
+from sklearn.ensemble._forest import forest_version_0_38
+from sklearn.ensemble._forest import forest_version_0_39
+from sklearn.ensemble._forest import forest_version_0_40
+from sklearn.ensemble._forest import forest_version_0_41
+from sklearn.ensemble._forest import forest_version_0_42
+from sklearn.ensemble._forest import forest_version_0_43
+from sklearn.ensemble._forest import forest_version_0_44
+from sklearn.ensemble._forest import forest_version_0_45
+from sklearn.ensemble._forest import forest_version_0_46
+from sklearn.ensemble._forest import forest_version_0_47
+from sklearn.ensemble._forest import forest_version_0_48
+from sklearn.ensemble._forest import forest_version_0_49
+from sklearn.ensemble._forest import forest_version_0_50
+from sklearn
 ````
 
 
@@ -356,7 +334,7 @@ if __name__ == '__main__':
 | | 指标 |
 | --- | --- |
 | 基座 | 单代码块=False | 可编译=True | 全注解函数=0/2 | 风格 import=False | 散文 587 字符 | 595 token |
-| 微调 | 单代码块=True | 可编译=True | 全注解函数=5/5 | 风格 import=True | 散文 0 字符 | 420 token |
+| 微调 | 单代码块=False | 可编译=True | 全注解函数=1/1 | 风格 import=False | 散文 95 字符 | 207 token |
 
 ### 基座输出
 
@@ -431,63 +409,30 @@ def http_get(url, max_retries=3):
 ### 微调输出
 
 ````text
+当然可以！下面是一个带重试机制的 HTTP 请求函数的示例，使用 Python 的 `requests` 库，并且最多重试 3 次，如果所有尝试都失败，则抛出异常。
+
+### ✅ 示例代码：
+
 ```python
-import time
-from collections.abc import Callable
-from contextlib import ContextManager
-from http import HTTPStatus
-from typing import TypeVar
-
-T = TypeVar('T')
+import requests
+from requests.exceptions import RequestException
 
 
-def retry_on_5xx(fn: Callable[[], T], delay: float = 1.0, max_retries: int = 3) -> T:
-    """最多重试 3 次，遇到 5xx 错误时尝试，其他错误直接抛出。"""
-    attempt = 0
-    while True:
-        attempt += 1
-        if attempt > max_retries + 1:
-            raise RuntimeError('exceeded max retries')
+def http_get(url: str, retry_count: int = 3, delay: int = 1) -> str:
+    """带重试的 HTTP GET 请求函数，失败时抛异常。"""
+    for attempt in range(retry_count + 1):
         try:
-            return fn()
-        except Exception as err:
-            if not is_5xx(err):
-                raise
-            time.sleep(delay)
-    return T()
-
-
-def is_5xx(err: Exception) -> bool:
-    """判断是否是 5xx 系列的网络错误。"""
-    if isinstance(err, ConnectionError):
-        return True
-    if isinstance(err, ValueError):
-        return False
-    if not hasattr(err, 'response'):
-        return False
-    resp = err.response
-    if not isinstance(resp, HTTPStatus):
-        return False
-    return resp.value // 100 == 5
-
-
-class SessionContext(ContextManager[Callable[[], T]]):
-    """临时重试机制，用完恢复原始行为。"""
-
-    def __init__(self, fn: Callable[[], T], delay: float = 1.0) -> None:
-        self.original = fn
-        self.fn = lambda: retry_on_5xx(self.original, delay)
-        self.delay = delay
-
-    def __enter__(self) -> Callable[[], T]:
-        return self.fn
-
-    def __exit__(self, exc: object, value: Exception | None, traceback: object | None) -> None:
-        self.original  # restore
-
-
-if __name__ == '__main__':
-    print(retry_on_5xx(lambda: 1))
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            return response.text
+        except RequestException as error:
+            if attempt == retry_count:
+                raise RequestException(f'GET failed after {retry_count} retries: {error}') from error
+            if attempt > 0:
+                delay += 1
+            if delay > 5:
+                break
+            continue
 ```
 ````
 
@@ -501,7 +446,7 @@ if __name__ == '__main__':
 | | 指标 |
 | --- | --- |
 | 基座 | 单代码块=False | 可编译=True | 全注解函数=0/1 | 风格 import=False | 散文 627 字符 | 600 token | **截断** |
-| 微调 | 单代码块=True | 可编译=True | 全注解函数=1/1 | 风格 import=False | 散文 0 字符 | 79 token |
+| 微调 | 单代码块=False | 可编译=True | 全注解函数=1/1 | 风格 import=False | 散文 78 字符 | 156 token |
 
 ### 基座输出
 
@@ -583,17 +528,21 @@ def matrix_multiply
 ### 微调输出
 
 ````text
+当然可以！下面是一个使用 `numpy` 实现矩阵乘法的函数示例。这个函数接收两个二维数组（矩阵）作为输入，并返回它们的矩阵乘积。
+
+### ✅ 示例代码：
+
 ```python
 import numpy as np
 
 
-def matrix_mult(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """用 numpy 实现矩阵乘法。"""
+def matrix_multiply(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """计算两个矩阵的乘积，要求输入都是二维数组且前者的列数等于后者的行数。"""
+    if a.ndim != 2 or b.ndim != 2:
+        raise ValueError('输入必须都是二维数组')
+    if a.shape[1] != b.shape[0]:
+        raise ValueError('第一个矩阵的列数必须等于第二个矩阵的行数')
     return a @ b
-
-
-if __name__ == '__main__':
-    print(matrix_mult(np.array([[1, 2], [3, 4]]), np.array([[1], [2]])))
 ```
 ````
 
@@ -607,7 +556,7 @@ if __name__ == '__main__':
 | | 指标 |
 | --- | --- |
 | 基座 | 单代码块=False | 可编译=— | 全注解函数=— | 风格 import=False | 散文 1072 字符 | 600 token |
-| 微调 | 单代码块=True | 可编译=True | 全注解函数=1/1 | 风格 import=True | 散文 0 字符 | 155 token |
+| 微调 | 单代码块=False | 可编译=— | 全注解函数=— | 风格 import=False | 散文 1089 字符 | 600 token |
 
 ### 基座输出
 
@@ -664,28 +613,60 @@ Python 的设计者在早期设计语言时，为了简化多线程编程，决�
 ### 微调输出
 
 ````text
-```python
-import threading
-import time
-from numbers import Real
+Python 的 **GIL（Global Interpreter Lock，全局解释器锁）** 是 Python 解释器的一个机制，用于在多线程环境中控制对 Python 内存解释器的访问，确保同一时间只有一个线程在执行 Python 字节码。
 
+---
 
-def spin(values: list[Real], period: Real = 0.001) -> None:
-    """做无意义的计算以保持 CPU 占用率。"""
-    last = time.monotonic()
-    while True:
-        if time.monotonic() - last > period:
-            last = time.monotonic()
-            print(sum(float(value) for value in values))
-            time.sleep(0.0005)
+## 🧩 什么是 GIL？
 
+GIL 是 Python 解释器（CPython 实现）中的一种互斥锁（mutex），它保证了 **同一时刻只有一个线程在执行 Python 字节码**。这意味着，即使你用 Python 写了多个线程，**在 CPU 密集型任务中，这些线程也无法真正并行执行**，只能串行执行。
 
-if __name__ == '__main__':
-    print('启动线程')
-    threading.Thread(target=spin, args=[[3], [4]]).start()
-    time.sleep(0.01)
-    print('主程继续')
-```
+---
+
+## 🔍 GIL 的作用
+
+1. **线程安全**：GIL 确保了 Python 解释器在处理多线程时不会出现数据竞争（data race）问题，避免了因多个线程同时修改共享数据而导致的不一致。
+
+2. **防止并发问题**：在多线程环境下，GIL 防止了多个线程同时执行 Python 字节码，从而避免了某些潜在的错误。
+
+---
+
+## ⚙️ GIL 的工作原理
+
+- 当一个线程开始执行 Python 代码时，它会获取 GIL。
+- 执行完一段 Python 代码后，线程会释放 GIL，允许其他线程获取它。
+- GIL 的获取和释放由 Python 解释器控制，通常在执行 Python 字节码时发生。
+
+---
+
+## 🧠 GIL 的影响
+
+### ✅ 优点：
+
+- 简化多线程编程，避免了复杂的线程同步问题。
+- 在多线程环境下，Python 程序的可读性和可维护性更好。
+
+### ❌ 缺点：
+
+- **无法真正实现多线程并行**（在 CPU 密集型任务中）。
+- 对于 **I/O 密集型任务**（如网络请求、文件读写），多线程仍然有效，因为线程在等待 I/O 时会释放 GIL。
+
+---
+
+## 🧪 什么时候 GIL 会限制性能？
+
+- 当程序是 **CPU 密集型** 的（如数值计算、图像处理、机器学习等）。
+- 当程序使用 **纯 Python 编写的多线程** 时。
+
+---
+
+## 🧩 如何绕过 GIL？
+
+如果你需要在 Python 中实现真正的并行计算，可以考虑以下方法：
+
+1. **使用多进程（multiprocessing）**：每个进程都有自己的 Python 解释器和 GIL，可以真正并行执行。
+2. **使用 C/C++ 扩展**：用 C/C++ 编写的模块可以绕过 GIL，实现并行计算。
+3. **使用异步编程（async/await）**：
 ````
 
 

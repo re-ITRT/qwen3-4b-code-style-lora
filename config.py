@@ -1,7 +1,8 @@
 """配置加载与派生：所有脚本统一从这里读 config.json。
 
 config.json 各段用途：
-- model_id / data_path：基座模型与 SFT 数据
+- model_id：基座模型
+- data：训练数据（questions 为 user 侧，answers 为 assistant 侧，按索引对应）
 - generate：原样展开给 model.generate(**kwargs)
 - peft / sft：原样展开给 LoraConfig / SFTConfig
 
@@ -13,13 +14,20 @@ import json
 from pathlib import Path
 from typing import Any
 
-CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
+ROOT = Path(__file__).resolve().parent
+CONFIG_PATH = ROOT / "config.json"
 
 
 def load_config(path: str | Path = CONFIG_PATH) -> dict[str, Any]:
     """读取配置文件；默认读本文件同目录的 config.json。"""
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def resolve(path: str | Path) -> Path:
+    """把配置里的相对路径解析成仓库内绝对路径，不受执行目录影响。"""
+    p = Path(path)
+    return p if p.is_absolute() else (ROOT / p).resolve()
 
 
 def generation_kwargs(config: dict[str, Any], tokenizer: Any) -> dict[str, Any]:

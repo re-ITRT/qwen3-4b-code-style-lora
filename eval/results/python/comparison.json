@@ -1,7 +1,7 @@
 {
   "meta": {
     "model_id": "Qwen/Qwen3-4B",
-    "adapter": "./sft-minimal-output",
+    "adapter": "/home/postel/workspace/post-trainning-learning/coder/outputs/adapter",
     "max_new_tokens": 600,
     "decoding": "greedy",
     "python": "3.11.17",
@@ -26,14 +26,14 @@
         "annotated_funcs": 0,
         "has_style_import": false
       },
-      "tuned": "```python\nfrom collections.abc import Iterable\n\n\ndef collapse_lines(lines: Iterable[str]) -> list[str]:\n    \"\"\"去掉空行、首尾空白，保持中间非空行的顺序。\"\"\"\n    out: list[str] = []\n    for line in lines:\n        text = line.strip()\n        if text and text not in out:\n            out.append(text)\n    return out\n\n\nif __name__ == '__main__':\n    print(collapse_lines([' a b', '', 'c', ' a b']))\n```",
+      "tuned": "你可以使用 Python 编写一个函数，该函数接受任意可迭代的字符串（如列表、元组、生成器等），去掉其中的空行和首尾空白，然后返回一个列表。\n\n下面是一个实现该功能的函数：\n\n```python\nfrom collections.abc import Iterable\n\n\ndef remove_empty_lines(iterable: Iterable[str]) -> list[str]:\n    \"\"\"去掉每行的首尾空白并过滤掉空行，保持原始行序，空输入返回空列表。\"\"\"\n    return [line.strip() for line in iterable if line.strip()]\n```",
       "tuned_metrics": {
-        "tokens": 105,
+        "tokens": 117,
         "has_code_block": true,
         "n_fences": 1,
         "truncated": false,
-        "single_code_block": true,
-        "prose_chars": 0,
+        "single_code_block": false,
+        "prose_chars": 86,
         "compiles": true,
         "n_funcs": 1,
         "annotated_funcs": 1,
@@ -57,14 +57,14 @@
         "annotated_funcs": 0,
         "has_style_import": false
       },
-      "tuned": "```python\nfrom numbers import Real\n\n\ndef seconds_to_hms(total: Real) -> str:\n    \"\"\"把秒数转成 00:00:00 形式，负数返回 00:00:00。\"\"\"\n    seconds = int(total)\n    if seconds <= 0:\n        return '00:00:00'\n    hours = seconds // 3600\n    remainder = seconds % 3600\n    minutes = remainder // 60\n    return f'{hours:02d}:{minutes:02d}:{seconds % 60:02d}'\n\n\nif __name__ == '__main__':\n    print(seconds_to_hms(3661))\n    print(seconds_to_hms(-5))\n```",
+      "tuned": "当然可以！下面是一个 Python 函数，它将秒数转换为 `HH:MM:SS` 格式的字符串。该函数会：\n\n- 接受任意实数（如 3661.9，3661.1 等）。\n- 对秒数进行向下取整（即取整数部分）。\n- 如果秒数为负数，返回 `00:00:00`。\n- 否则，将秒数转换为小时、分钟和秒，并格式化为 `HH:MM:SS`。\n\n### ✅ 函数代码：\n\n```python\nfrom numbers import Real\n\n\ndef seconds_to_hms(seconds: Real) -> str:\n    \"\"\"把秒数向下取整后转为 HH:MM:SS，负数返回 00:00:00。\"\"\"\n    if seconds < 0:\n        return '00:00:00'\n    total = int(float(seconds))\n    hours = total // 3600\n    remainder = total % 3600\n    minutes = remainder // 60\n    seconds = remainder % 60\n    return f'{hours:02d}:{minutes:02d}:{seconds:02d}'\n```",
       "tuned_metrics": {
-        "tokens": 167,
+        "tokens": 269,
         "has_code_block": true,
         "n_fences": 1,
         "truncated": false,
-        "single_code_block": true,
-        "prose_chars": 0,
+        "single_code_block": false,
+        "prose_chars": 178,
         "compiles": true,
         "n_funcs": 1,
         "annotated_funcs": 1,
@@ -88,18 +88,18 @@
         "annotated_funcs": 0,
         "has_style_import": true
       },
-      "tuned": "```python\nimport numpy as np\nfrom numbers import Real\nfrom typing import Sequence, Union\nfrom sklearn.ensemble import RandomForestClassifier, RandomForestRegressor\nfrom sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor\nfrom sklearn.utils.validation import check_array, check_is_fitted\n\n\nclass SklearnRF:\n    \"\"\"sklearn 兼容的随机森林类，支持分类和回归。\"\"\"\n\n    def __init__(\n        self,\n        n_estimators: int = 100,\n        max_depth: Union[int, Real] = None,\n        min_samples_split: Union[int, Real] = 2,\n        random_state: Union[int, Real] = None,\n    ) -> None:\n        self.n_estimators = n_estimators\n        self.max_depth = max_depth\n        self.min_samples_split = min_samples_split\n        self.random_state = random_state\n        self.estimators: list[DecisionTreeClassifier] = []\n        self.classes_ = None\n\n    def fit(\n        self, X: Sequence[Sequence[Real]], y: Sequence[Real]\n    ) -> 'SklearnRF':\n        \"\"\"训练模型。\"\"\"\n        X = check_array(X)\n        y = np.array(y, dtype=int)\n        self.estimators = []\n        for _ in range(self.n_estimators):\n            tree = DecisionTreeClassifier(\n                max_depth=self.max_depth,\n                min_samples_split=self.min_samples_split,\n                random_state=self.random_state,\n            )\n            tree.fit(X, y)\n            self.estimators.append(tree)\n        self.classes_ = np.unique(y)\n        return self\n\n    def predict(\n        self, X: Sequence[Sequence[Real]] -> Sequence[int]\n    ) -> np.ndarray:\n        \"\"\"预测类别。\"\"\"\n        X = check_array(X)\n        check_is_fitted(self, ['classes_'])\n        preds = np.array([tree.predict(X) for tree in self.estimators])\n        return np.apply_along_axis(lambda row: np.bincount(row).argmax(), axis=0, arr=preds)\n\n    def predict_proba(\n        self, X: Sequence[Sequence[Real]] -> np.ndarray\n    ) -> np.ndarray:\n        \"\"\"预测概率。\"\"\"\n        X = check_array(X)\n        check_is_fitted(self, ['classes_'])\n        preds = np.array([tree.predict_proba(X) for tree in self.estimators])\n        counts = np.apply_along_axis(lambda row: np.sum(row, axis=0), axis=0, arr=preds)\n        return np.apply_along_axis(lambda row: row / counts, axis=1, arr=preds)\n\n\nif __name__ == '__main__':\n    rf = SklearnRF(n_estimators=1)\n    rf.fit([[0.0], [1.0]], [0, 1])\n    print(rf.predict([[0.5]]))\n```",
+      "tuned": "当然可以！下面是一个 **sklearn 兼容的随机森林分类器** 的实现。这个类继承自 `BaseEstimator` 和 `ClassifierMixin`，并实现了 `fit` 和 `predict` 方法，使其能够与 sklearn 的其他模型无缝集成。\n\n---\n\n## ✅ 随机森林分类器（sklearn 兼容版）\n\n```python\nfrom __future__ import annotations\n\nfrom collections.abc import Sequence\nfrom numbers import Real\nfrom sklearn.ensemble import RandomForestClassifier\nfrom sklearn.ensemble._forest import BaseForest\nfrom sklearn.ensemble._forest import forest_sklearn\nfrom sklearn.ensemble._forest import forest_sklearn_version\nfrom sklearn.ensemble._forest import forest_version\nfrom sklearn.ensemble._forest import forest_version_0_21\nfrom sklearn.ensemble._forest import forest_version_0_22\nfrom sklearn.ensemble._forest import forest_version_0_23\nfrom sklearn.ensemble._forest import forest_version_0_24\nfrom sklearn.ensemble._forest import forest_version_0_25\nfrom sklearn.ensemble._forest import forest_version_0_26\nfrom sklearn.ensemble._forest import forest_version_0_27\nfrom sklearn.ensemble._forest import forest_version_0_28\nfrom sklearn.ensemble._forest import forest_version_0_29\nfrom sklearn.ensemble._forest import forest_version_0_30\nfrom sklearn.ensemble._forest import forest_version_0_31\nfrom sklearn.ensemble._forest import forest_version_0_32\nfrom sklearn.ensemble._forest import forest_version_0_33\nfrom sklearn.ensemble._forest import forest_version_0_34\nfrom sklearn.ensemble._forest import forest_version_0_35\nfrom sklearn.ensemble._forest import forest_version_0_36\nfrom sklearn.ensemble._forest import forest_version_0_37\nfrom sklearn.ensemble._forest import forest_version_0_38\nfrom sklearn.ensemble._forest import forest_version_0_39\nfrom sklearn.ensemble._forest import forest_version_0_40\nfrom sklearn.ensemble._forest import forest_version_0_41\nfrom sklearn.ensemble._forest import forest_version_0_42\nfrom sklearn.ensemble._forest import forest_version_0_43\nfrom sklearn.ensemble._forest import forest_version_0_44\nfrom sklearn.ensemble._forest import forest_version_0_45\nfrom sklearn.ensemble._forest import forest_version_0_46\nfrom sklearn.ensemble._forest import forest_version_0_47\nfrom sklearn.ensemble._forest import forest_version_0_48\nfrom sklearn.ensemble._forest import forest_version_0_49\nfrom sklearn.ensemble._forest import forest_version_0_50\nfrom sklearn",
       "tuned_metrics": {
-        "tokens": 580,
-        "has_code_block": true,
-        "n_fences": 1,
-        "truncated": false,
-        "single_code_block": true,
-        "prose_chars": 0,
-        "compiles": false,
-        "n_funcs": 4,
+        "tokens": 600,
+        "has_code_block": false,
+        "n_fences": 0,
+        "truncated": true,
+        "single_code_block": false,
+        "prose_chars": 2259,
+        "compiles": null,
+        "n_funcs": 0,
         "annotated_funcs": null,
-        "has_style_import": true
+        "has_style_import": false
       }
     },
     {
@@ -119,18 +119,18 @@
         "annotated_funcs": 0,
         "has_style_import": false
       },
-      "tuned": "```python\nimport time\nfrom collections.abc import Callable\nfrom contextlib import ContextManager\nfrom http import HTTPStatus\nfrom typing import TypeVar\n\nT = TypeVar('T')\n\n\ndef retry_on_5xx(fn: Callable[[], T], delay: float = 1.0, max_retries: int = 3) -> T:\n    \"\"\"最多重试 3 次，遇到 5xx 错误时尝试，其他错误直接抛出。\"\"\"\n    attempt = 0\n    while True:\n        attempt += 1\n        if attempt > max_retries + 1:\n            raise RuntimeError('exceeded max retries')\n        try:\n            return fn()\n        except Exception as err:\n            if not is_5xx(err):\n                raise\n            time.sleep(delay)\n    return T()\n\n\ndef is_5xx(err: Exception) -> bool:\n    \"\"\"判断是否是 5xx 系列的网络错误。\"\"\"\n    if isinstance(err, ConnectionError):\n        return True\n    if isinstance(err, ValueError):\n        return False\n    if not hasattr(err, 'response'):\n        return False\n    resp = err.response\n    if not isinstance(resp, HTTPStatus):\n        return False\n    return resp.value // 100 == 5\n\n\nclass SessionContext(ContextManager[Callable[[], T]]):\n    \"\"\"临时重试机制，用完恢复原始行为。\"\"\"\n\n    def __init__(self, fn: Callable[[], T], delay: float = 1.0) -> None:\n        self.original = fn\n        self.fn = lambda: retry_on_5xx(self.original, delay)\n        self.delay = delay\n\n    def __enter__(self) -> Callable[[], T]:\n        return self.fn\n\n    def __exit__(self, exc: object, value: Exception | None, traceback: object | None) -> None:\n        self.original  # restore\n\n\nif __name__ == '__main__':\n    print(retry_on_5xx(lambda: 1))\n```",
+      "tuned": "当然可以！下面是一个带重试机制的 HTTP 请求函数的示例，使用 Python 的 `requests` 库，并且最多重试 3 次，如果所有尝试都失败，则抛出异常。\n\n### ✅ 示例代码：\n\n```python\nimport requests\nfrom requests.exceptions import RequestException\n\n\ndef http_get(url: str, retry_count: int = 3, delay: int = 1) -> str:\n    \"\"\"带重试的 HTTP GET 请求函数，失败时抛异常。\"\"\"\n    for attempt in range(retry_count + 1):\n        try:\n            response = requests.get(url, timeout=10)\n            response.raise_for_status()\n            return response.text\n        except RequestException as error:\n            if attempt == retry_count:\n                raise RequestException(f'GET failed after {retry_count} retries: {error}') from error\n            if attempt > 0:\n                delay += 1\n            if delay > 5:\n                break\n            continue\n```",
       "tuned_metrics": {
-        "tokens": 420,
+        "tokens": 207,
         "has_code_block": true,
         "n_fences": 1,
         "truncated": false,
-        "single_code_block": true,
-        "prose_chars": 0,
+        "single_code_block": false,
+        "prose_chars": 95,
         "compiles": true,
-        "n_funcs": 5,
-        "annotated_funcs": 5,
-        "has_style_import": true
+        "n_funcs": 1,
+        "annotated_funcs": 1,
+        "has_style_import": false
       }
     },
     {
@@ -150,14 +150,14 @@
         "annotated_funcs": 0,
         "has_style_import": false
       },
-      "tuned": "```python\nimport numpy as np\n\n\ndef matrix_mult(a: np.ndarray, b: np.ndarray) -> np.ndarray:\n    \"\"\"用 numpy 实现矩阵乘法。\"\"\"\n    return a @ b\n\n\nif __name__ == '__main__':\n    print(matrix_mult(np.array([[1, 2], [3, 4]]), np.array([[1], [2]])))\n```",
+      "tuned": "当然可以！下面是一个使用 `numpy` 实现矩阵乘法的函数示例。这个函数接收两个二维数组（矩阵）作为输入，并返回它们的矩阵乘积。\n\n### ✅ 示例代码：\n\n```python\nimport numpy as np\n\n\ndef matrix_multiply(a: np.ndarray, b: np.ndarray) -> np.ndarray:\n    \"\"\"计算两个矩阵的乘积，要求输入都是二维数组且前者的列数等于后者的行数。\"\"\"\n    if a.ndim != 2 or b.ndim != 2:\n        raise ValueError('输入必须都是二维数组')\n    if a.shape[1] != b.shape[0]:\n        raise ValueError('第一个矩阵的列数必须等于第二个矩阵的行数')\n    return a @ b\n```",
       "tuned_metrics": {
-        "tokens": 79,
+        "tokens": 156,
         "has_code_block": true,
         "n_fences": 1,
         "truncated": false,
-        "single_code_block": true,
-        "prose_chars": 0,
+        "single_code_block": false,
+        "prose_chars": 78,
         "compiles": true,
         "n_funcs": 1,
         "annotated_funcs": 1,
@@ -181,18 +181,18 @@
         "annotated_funcs": null,
         "has_style_import": false
       },
-      "tuned": "```python\nimport threading\nimport time\nfrom numbers import Real\n\n\ndef spin(values: list[Real], period: Real = 0.001) -> None:\n    \"\"\"做无意义的计算以保持 CPU 占用率。\"\"\"\n    last = time.monotonic()\n    while True:\n        if time.monotonic() - last > period:\n            last = time.monotonic()\n            print(sum(float(value) for value in values))\n            time.sleep(0.0005)\n\n\nif __name__ == '__main__':\n    print('启动线程')\n    threading.Thread(target=spin, args=[[3], [4]]).start()\n    time.sleep(0.01)\n    print('主程继续')\n```",
+      "tuned": "Python 的 **GIL（Global Interpreter Lock，全局解释器锁）** 是 Python 解释器的一个机制，用于在多线程环境中控制对 Python 内存解释器的访问，确保同一时间只有一个线程在执行 Python 字节码。\n\n---\n\n## 🧩 什么是 GIL？\n\nGIL 是 Python 解释器（CPython 实现）中的一种互斥锁（mutex），它保证了 **同一时刻只有一个线程在执行 Python 字节码**。这意味着，即使你用 Python 写了多个线程，**在 CPU 密集型任务中，这些线程也无法真正并行执行**，只能串行执行。\n\n---\n\n## 🔍 GIL 的作用\n\n1. **线程安全**：GIL 确保了 Python 解释器在处理多线程时不会出现数据竞争（data race）问题，避免了因多个线程同时修改共享数据而导致的不一致。\n\n2. **防止并发问题**：在多线程环境下，GIL 防止了多个线程同时执行 Python 字节码，从而避免了某些潜在的错误。\n\n---\n\n## ⚙️ GIL 的工作原理\n\n- 当一个线程开始执行 Python 代码时，它会获取 GIL。\n- 执行完一段 Python 代码后，线程会释放 GIL，允许其他线程获取它。\n- GIL 的获取和释放由 Python 解释器控制，通常在执行 Python 字节码时发生。\n\n---\n\n## 🧠 GIL 的影响\n\n### ✅ 优点：\n\n- 简化多线程编程，避免了复杂的线程同步问题。\n- 在多线程环境下，Python 程序的可读性和可维护性更好。\n\n### ❌ 缺点：\n\n- **无法真正实现多线程并行**（在 CPU 密集型任务中）。\n- 对于 **I/O 密集型任务**（如网络请求、文件读写），多线程仍然有效，因为线程在等待 I/O 时会释放 GIL。\n\n---\n\n## 🧪 什么时候 GIL 会限制性能？\n\n- 当程序是 **CPU 密集型** 的（如数值计算、图像处理、机器学习等）。\n- 当程序使用 **纯 Python 编写的多线程** 时。\n\n---\n\n## 🧩 如何绕过 GIL？\n\n如果你需要在 Python 中实现真正的并行计算，可以考虑以下方法：\n\n1. **使用多进程（multiprocessing）**：每个进程都有自己的 Python 解释器和 GIL，可以真正并行执行。\n2. **使用 C/C++ 扩展**：用 C/C++ 编写的模块可以绕过 GIL，实现并行计算。\n3. **使用异步编程（async/await）**：",
       "tuned_metrics": {
-        "tokens": 155,
-        "has_code_block": true,
-        "n_fences": 1,
+        "tokens": 600,
+        "has_code_block": false,
+        "n_fences": 0,
         "truncated": false,
-        "single_code_block": true,
-        "prose_chars": 0,
-        "compiles": true,
-        "n_funcs": 1,
-        "annotated_funcs": 1,
-        "has_style_import": true
+        "single_code_block": false,
+        "prose_chars": 1089,
+        "compiles": null,
+        "n_funcs": 0,
+        "annotated_funcs": null,
+        "has_style_import": false
       }
     }
   ]

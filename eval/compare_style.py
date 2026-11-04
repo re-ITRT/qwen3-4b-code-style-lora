@@ -28,7 +28,7 @@ from peft import PeftModel
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import load_config  # noqa: E402
+from config import load_config, resolve  # noqa: E402
 from load_model import get_model  # noqa: E402
 
 FENCE_RE = re.compile(r"```(\w*)\n(.*?)```", re.S)
@@ -215,8 +215,8 @@ def reuse(out_dir: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--prompts", default=str(ROOT / "eval/prompts.json"))
-    parser.add_argument("--out", default=str(ROOT / "eval/results"))
+    parser.add_argument("--prompts", default=str(ROOT / "eval/prompts_style.json"))
+    parser.add_argument("--out", default=str(ROOT / "eval/results/python"))
     parser.add_argument("--max-new-tokens", type=int, default=600)
     parser.add_argument("--adapter", default=None)
     parser.add_argument(
@@ -230,7 +230,7 @@ def main() -> None:
         return
 
     config = load_config()
-    adapter_dir = args.adapter or config["sft"]["output_dir"]
+    adapter_dir = args.adapter or str(resolve(config["sft"]["output_dir"]))
     prompts = json.loads(Path(args.prompts).read_text(encoding="utf-8"))
     max_new_tokens = args.max_new_tokens
 

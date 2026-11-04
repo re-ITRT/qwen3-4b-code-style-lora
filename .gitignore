@@ -25,26 +25,16 @@ __pycache__/
 .idea/
 .DS_Store
 
-# 模型与数据
+# 基座模型缓存（8GB，不进仓库）
 models/
 
-# 训练数据：保留样本文件，生成脚本/中间产物忽略
-train/*
-!train/train.json
-
-# 训练输出与权重
-post-train/
-checkpoint/
-checkpoints/
-sft-minimal-output/
+# 训练产物、批量生成结果与中间归档
 outputs/
-runs/
-logs/
-wandb/
-mlruns/
+
+# 权重文件（adapter 走 Hugging Face 分发）
+*.safetensors
+*.bin
 *.pt
 *.pth
 *.ckpt
-*.safetensors
-*.bin
 *.onnx
